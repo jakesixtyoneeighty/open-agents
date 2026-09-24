@@ -4,6 +4,9 @@ import { History } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { SignedOutHero } from "@/components/auth/signed-out-hero";
+import { MojoAurora } from "@/components/brand/mojo-aurora";
+import { MojoAvatar } from "@/components/brand/mojo-avatar";
+import { MojoLogo } from "@/components/brand/mojo-logo";
 import { HomeSkeleton } from "@/components/home-skeleton";
 import type { SandboxType } from "@/components/sandbox-selector-compact";
 import { SessionDrawer } from "@/components/session-drawer";
@@ -77,10 +80,11 @@ export function HomePage({ hasSessionCookie, lastRepo }: HomePageProps) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <header className="flex items-center justify-between px-6 py-4">
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-background text-foreground">
+      <MojoAurora intensity="subtle" />
+      <header className="relative flex items-center justify-between px-6 py-4">
         <div className="flex items-center gap-2 sm:justify-self-start">
-          <span className="text-lg font-semibold">Open Agents</span>
+          <MojoLogo />
         </div>
         <div className="flex items-center gap-2 sm:justify-self-end">
           <button
@@ -104,9 +108,10 @@ export function HomePage({ hasSessionCookie, lastRepo }: HomePageProps) {
         </div>
       </header>
 
-      <main className="flex flex-1 flex-col items-center px-6 pt-8 sm:pt-16">
-        <h1 className="mb-8 text-3xl font-light text-foreground">
-          What should we ship next?
+      <main className="relative flex flex-1 flex-col items-center px-6 pt-8 sm:pt-16">
+        <MojoAvatar size="lg" status="online" className="mojo-rise mb-5" />
+        <h1 className="mojo-rise mb-8 text-center text-3xl font-semibold tracking-tight [animation-delay:80ms]">
+          What should <span className="text-gradient-mojo">we ship</span> next?
         </h1>
 
         <SessionStarter

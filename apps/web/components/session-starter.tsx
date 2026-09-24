@@ -231,7 +231,7 @@ export function SessionStarter({
   return (
     <div
       className={cn(
-        "w-full min-w-0 max-w-2xl overflow-hidden rounded-xl border border-border/70 bg-card/80 p-4 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/75 dark:border-white/10 dark:bg-neutral-900/60 dark:shadow-none sm:p-5",
+        "mojo-border w-full min-w-0 max-w-2xl overflow-hidden rounded-2xl bg-card/80 p-4 shadow-mojo backdrop-blur supports-[backdrop-filter]:bg-card/70 sm:p-5",
         "transition-all duration-200",
       )}
     >
@@ -243,8 +243,8 @@ export function SessionStarter({
             className={cn(
               "flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all",
               mode === "empty"
-                ? "border border-border/70 bg-background text-foreground shadow-sm dark:border-transparent dark:bg-white/10 dark:text-neutral-100"
-                : "text-muted-foreground hover:text-foreground dark:text-neutral-400 dark:hover:text-neutral-300",
+                ? "border border-border/70 bg-background text-foreground shadow-sm dark:border-transparent dark:bg-white/10 "
+                : "text-muted-foreground hover:text-foreground ",
             )}
           >
             <MessageSquare className="h-3.5 w-3.5" />
@@ -257,10 +257,10 @@ export function SessionStarter({
             className={cn(
               "flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all",
               isRepoModeDisabled
-                ? "cursor-not-allowed text-muted-foreground/50 dark:text-neutral-600"
+                ? "cursor-not-allowed text-muted-foreground/50 "
                 : mode === "repo"
-                  ? "border border-border/70 bg-background text-foreground shadow-sm dark:border-transparent dark:bg-white/10 dark:text-neutral-100"
-                  : "text-muted-foreground hover:text-foreground dark:text-neutral-400 dark:hover:text-neutral-300",
+                  ? "border border-border/70 bg-background text-foreground shadow-sm dark:border-transparent dark:bg-white/10 "
+                  : "text-muted-foreground hover:text-foreground ",
             )}
           >
             <GitBranch className="h-3.5 w-3.5" />
@@ -303,7 +303,7 @@ export function SessionStarter({
         )}
 
         {mode === "empty" && (
-          <p className="text-center text-sm text-muted-foreground dark:text-neutral-500">
+          <p className="text-center text-sm text-muted-foreground ">
             {isTrialUser
               ? "In the hosted demo, you can start chats without connecting GitHub."
               : "Start a new chat -- no repository required."}
@@ -385,7 +385,7 @@ export function SessionStarter({
             "flex w-full items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors",
             isSubmitDisabled
               ? "cursor-not-allowed bg-muted text-muted-foreground"
-              : "bg-foreground text-background hover:bg-foreground/90",
+              : "bg-gradient-mojo text-white shadow-mojo hover:brightness-110",
           )}
         >
           {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}

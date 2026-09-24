@@ -20,6 +20,8 @@ import { useRouter } from "next/navigation";
 import type { CSSProperties } from "react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BranchPickerDialog } from "@/components/branch-picker-dialog";
+import { MojoAvatar } from "@/components/brand/mojo-avatar";
+import { MojoLogo } from "@/components/brand/mojo-logo";
 import { getValidRenameTitle } from "@/components/inbox-sidebar-rename";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -541,12 +543,20 @@ const SessionRow = memo(function SessionRow({
     <button
       type="button"
       className={`group relative flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left outline-none transition-[background-color,opacity] cursor-pointer ${
-        isActive ? "bg-sidebar-active" : "hover:bg-muted/50"
+        isActive
+          ? "bg-gradient-mojo-soft bg-sidebar-active shadow-[inset_0_0_0_1px_var(--sidebar-border)]"
+          : "hover:bg-muted/50"
       } ${isPending ? "opacity-80" : "opacity-100"} ${actionButtons ? "pr-12" : ""}`}
       onClick={() => onSessionClick(session)}
       onFocus={() => onSessionPrefetch(session)}
       aria-busy={isPending}
     >
+      {isActive && (
+        <span
+          aria-hidden="true"
+          className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-gradient-mojo"
+        />
+      )}
       <span className="flex h-5 w-5 shrink-0 items-center justify-center">
         {getSessionStatusIcon(session)}
       </span>
@@ -965,25 +975,24 @@ export function InboxSidebar({
   return (
     <>
       <div className="border-b border-border p-3">
-        <div className="mb-3 flex items-center justify-between">
-          <div className="flex items-center px-2 py-1.5 text-sm text-primary">
-            <span>Sessions</span>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => {
-              if (isMobile) {
-                setOpenMobile(false);
-              }
-              onOpenNewSession();
-            }}
-            className="h-7 w-7"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
+        <div className="mb-3 flex items-center justify-between px-1 py-0.5">
+          <MojoLogo markClassName="size-6" />
+          <MojoAvatar size="sm" status="online" />
         </div>
+        <Button
+          type="button"
+          variant="mojo"
+          onClick={() => {
+            if (isMobile) {
+              setOpenMobile(false);
+            }
+            onOpenNewSession();
+          }}
+          className="mb-3 h-9 w-full rounded-lg"
+        >
+          <Plus className="h-4 w-4" />
+          New session
+        </Button>
 
         <div className="flex gap-1">
           <button

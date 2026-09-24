@@ -55,39 +55,7 @@ See `apps/web/.env.example` for the full list. Summary:
 
 ### Minimum runtime
 
-```env
-POSTGRES_URL=
-BETTER_AUTH_SECRET=
-```
-
-### Required for sign-in (Vercel OAuth)
-
-```env
-NEXT_PUBLIC_VERCEL_APP_CLIENT_ID=
-VERCEL_APP_CLIENT_SECRET=
-```
-
-### Required for GitHub repo access, pushes, and PRs
-
-```env
-NEXT_PUBLIC_GITHUB_CLIENT_ID=
-GITHUB_CLIENT_SECRET=
-GITHUB_APP_ID=
-GITHUB_APP_PRIVATE_KEY=
-NEXT_PUBLIC_GITHUB_APP_SLUG=
-GITHUB_WEBHOOK_SECRET=
-```
-
-### Optional
-
-```env
-REDIS_URL=
-KV_URL=
-OPEN_AGENTS_RESOURCE_PROFILE=
-VERCEL_PROJECT_PRODUCTION_URL=
-NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL=
-VERCEL_SANDBOX_BASE_SNAPSHOT_ID=
-ELEVENLABS_API_KEY=
+`
 ```
 
 - `REDIS_URL` / `KV_URL`: optional skills metadata cache (falls back to in-memory when not configured).

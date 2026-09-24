@@ -76,6 +76,8 @@ import {
   PinnedTodoPanel,
   getLatestTodos,
 } from "@/components/pinned-todo-panel";
+import { MojoEmptyChat } from "@/components/brand/mojo-empty-chat";
+import { MojoThinking } from "@/components/brand/mojo-thinking";
 import { ThinkingBlock } from "@/components/thinking-block";
 import { ToolCall } from "@/components/tool-call";
 import { OpenFileProvider } from "@/components/tool-call/open-file-context";
@@ -3287,11 +3289,19 @@ export function SessionChatContent({
                       <div className="space-y-6">
                         {groupedRenderMessages.length === 0 &&
                           !hasPendingResponse && (
-                            <div className="flex h-full min-h-[40vh] items-center justify-center">
-                              <p className="text-sm text-muted-foreground">
-                                Send a message to get started
-                              </p>
-                            </div>
+                            <MojoEmptyChat
+                              repoLabel={
+                                session.repoOwner && session.repoName
+                                  ? `${session.repoOwner}/${session.repoName}`
+                                  : null
+                              }
+                              onPickSuggestion={(prompt) => {
+                                setInput(prompt);
+                                requestAnimationFrame(() => {
+                                  inputRef.current?.focus();
+                                });
+                              }}
+                            />
                           )}
                         {groupedRenderMessages.map(
                           ({
@@ -3415,7 +3425,7 @@ export function SessionChatContent({
                                     >
                                       {m.role === "user" ? (
                                         <div className="group relative w-fit min-w-0 max-w-[80%]">
-                                          <div className="rounded-3xl bg-secondary px-4 py-2">
+                                          <div className="rounded-3xl rounded-br-lg bg-secondary bg-gradient-mojo-soft px-4 py-2 ring-1 ring-border">
                                             <p className="whitespace-pre-wrap break-words">
                                               {p.text}
                                             </p>
@@ -3735,14 +3745,7 @@ export function SessionChatContent({
                         )}
                         {showThinkingIndicator && (
                           <div className="my-1.5 border border-transparent py-0.5">
-                            <div className="inline-flex items-center gap-2 rounded-md py-px text-sm text-muted-foreground">
-                              <span className="flex size-3.5 shrink-0 items-center justify-center">
-                                <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-muted-foreground" />
-                              </span>
-                              <span className="leading-none">
-                                {workspaceStatus?.message ?? "Thinking…"}
-                              </span>
-                            </div>
+                            <MojoThinking message={workspaceStatus?.message} />
                           </div>
                         )}
                       </div>
@@ -3846,7 +3849,12 @@ export function SessionChatContent({
                     <PinnedTodoPanel todos={latestTodos} />
                     {/* Input form */}
                     <div
-                      className={`overflow-hidden rounded-2xl bg-muted transition-colors ${isDragging ? "ring-2 ring-blue-500/50" : ""}`}
+                      className={cn(
+                        "overflow-hidden rounded-2xl border border-border bg-card/90 shadow-sm backdrop-blur transition-[border-color,box-shadow] duration-300 focus-within:border-mojo-blue/40 focus-within:shadow-mojo",
+                        (isChatInFlight || hasPendingResponse) &&
+                          "mojo-border-spin",
+                        isDragging && "ring-2 ring-mojo-blue/50",
+                      )}
                     >
                       <form
                         onSubmit={async (e) => {
@@ -4054,7 +4062,7 @@ export function SessionChatContent({
                             placeholder={
                               showInlineQuestion
                                 ? inlineQuestion.placeholder
-                                : "Request changes or ask a question..."
+                                : "Ask Mojo to fix, build, or explain something…"
                             }
                             rows={1}
                             onFocus={handleTextareaFocus}
@@ -4290,7 +4298,7 @@ export function SessionChatContent({
                                           textAttachments.length === 0) ||
                                         isUpdatingModel
                                       }
-                                      className="h-8 w-8 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-30"
+                                      className="h-8 w-8 rounded-full bg-gradient-mojo text-white shadow-mojo transition-transform hover:scale-105 hover:brightness-110 disabled:opacity-30 disabled:shadow-none"
                                     >
                                       <ArrowUp className="h-4 w-4" />
                                     </Button>

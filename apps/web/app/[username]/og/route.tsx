@@ -79,7 +79,7 @@ export async function GET(request: Request, context: OgRouteContext) {
         display: "flex",
         position: "relative",
         overflow: "hidden",
-        background: "#0a0a0a",
+        background: "#070a1c",
         color: "#ffffff",
         fontFamily:
           'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
@@ -92,7 +92,7 @@ export async function GET(request: Request, context: OgRouteContext) {
           inset: 0,
           display: "flex",
           background:
-            "radial-gradient(ellipse 900px 500px at 15% 20%, rgba(255, 138, 61, 0.12), transparent 60%), radial-gradient(ellipse 700px 500px at 85% 80%, rgba(255, 255, 255, 0.04), transparent 60%)",
+            "radial-gradient(ellipse 900px 500px at 15% 20%, rgba(34, 211, 238, 0.18), transparent 60%), radial-gradient(ellipse 700px 500px at 85% 80%, rgba(168, 85, 247, 0.22), transparent 60%)",
         }}
       />
 
@@ -151,7 +151,7 @@ export async function GET(request: Request, context: OgRouteContext) {
           width: 700,
           height: 180,
           display: "flex",
-          background: "linear-gradient(to right, #0a0a0a 5%, transparent 50%)",
+          background: "linear-gradient(to right, #070a1c 5%, transparent 50%)",
           borderRadius: "24px 24px 0 0",
         }}
       />
@@ -163,12 +163,12 @@ export async function GET(request: Request, context: OgRouteContext) {
           width: 700,
           height: 100,
           display: "flex",
-          background: "linear-gradient(to top, #0a0a0a, transparent)",
+          background: "linear-gradient(to top, #070a1c, transparent)",
         }}
       />
 
       {/* Content — using fixed positioning for reliable layout */}
-      {/* Top-left: Open Agents branding */}
+      {/* Top-left: MojoCode branding */}
       <div
         style={{
           position: "absolute",
@@ -179,19 +179,13 @@ export async function GET(request: Request, context: OgRouteContext) {
           gap: 12,
         }}
       >
-        <svg viewBox="0 0 24 24" width="28" height="28" fill="none">
+        <svg viewBox="0 0 32 32" width="28" height="28" fill="none">
           <path
-            d="M4 17L10 11L4 5"
-            stroke="rgba(255,255,255,0.5)"
-            strokeWidth="1.5"
+            d="M6 25.5V8.5L16 19.5L26 8.5V25.5"
+            stroke="#6b8cff"
+            strokeWidth="5.5"
             strokeLinecap="round"
             strokeLinejoin="round"
-          />
-          <path
-            d="M12 19H20"
-            stroke="rgba(255,255,255,0.5)"
-            strokeWidth="1.5"
-            strokeLinecap="round"
           />
         </svg>
         <span
@@ -202,7 +196,7 @@ export async function GET(request: Request, context: OgRouteContext) {
             letterSpacing: "-0.01em",
           }}
         >
-          Open Agents
+          MojoCode
         </span>
       </div>
 
@@ -347,7 +341,7 @@ export async function GET(request: Request, context: OgRouteContext) {
               letterSpacing: "0.01em",
             }}
           >
-            open-agents.dev
+            MojoCode
           </span>
         </div>
       </div>

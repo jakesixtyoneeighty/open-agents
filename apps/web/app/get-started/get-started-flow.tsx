@@ -4,39 +4,25 @@ import { useCallback, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Check, Github, Loader2 } from "lucide-react";
+import {
+  Check,
+  GitPullRequestArrow,
+  Github,
+  Loader2,
+  LockKeyhole,
+  Server,
+} from "lucide-react";
+import { MojoAurora } from "@/components/brand/mojo-aurora";
+import { MojoLogo } from "@/components/brand/mojo-logo";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "@/hooks/use-session";
 import { authClient } from "@/lib/auth/client";
+import { BRAND } from "@/lib/brand";
 import { sanitizeInternalRedirect } from "@/lib/redirect-safety";
+import { skipGitHubOnboarding } from "./actions";
 
 type StepId = 1 | 2;
-
-function OpenAgentsLogo({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      className={className}
-      aria-label="Open Agents"
-    >
-      <path
-        d="M4 17L10 11L4 5"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M12 19H20"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
 
 export function GetStartedFlow() {
   const router = useRouter();
@@ -53,11 +39,10 @@ export function GetStartedFlow() {
     searchParams.get("next"),
     "/sessions",
   );
-  const [activeStep, setActiveStep] = useState<StepId>(
-    isGitHubReconnect ? 2 : 1,
-  );
+  // Signing in already completes step 1, so open straight on GitHub.
+  const [activeStep, setActiveStep] = useState<StepId>(2);
   const [completedSteps, setCompletedSteps] = useState<Set<StepId>>(
-    () => new Set(isGitHubReconnect ? [1] : []),
+    () => new Set([1]),
   );
 
   const markComplete = useCallback((step: StepId) => {
@@ -82,31 +67,38 @@ export function GetStartedFlow() {
   };
 
   const steps: { id: StepId; title: string }[] = [
-    { id: 1, title: "Vercel Account" },
+    { id: 1, title: "Your account" },
     { id: 2, title: "Connect GitHub" },
   ];
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
       {/* left panel */}
-      <div className="flex shrink-0 flex-col justify-between bg-black px-6 py-6 md:w-1/2 md:px-12 md:py-10">
-        <div className="flex items-center gap-3">
-          <OpenAgentsLogo className="size-7 text-white/50" />
-          <span className="text-lg font-semibold tracking-tight text-white/50">
-            Open Agents
-          </span>
+      <div className="relative flex shrink-0 flex-col justify-between overflow-hidden bg-[oklch(0.12_0.03_272)] px-6 py-6 text-white md:w-1/2 md:px-12 md:py-10">
+        <MojoAurora intensity="vivid" />
+        <div className="relative">
+          <MojoLogo className="text-white" />
         </div>
-        <p className="hidden max-w-sm text-sm leading-relaxed text-zinc-600 md:block">
-          Spawn coding agents that run infinitely in the cloud. Powered by AI
-          SDK, Gateway, Sandbox, and Workflow SDK.
+        <div className="relative hidden md:block">
+          <Image
+            src={BRAND.assets.hero}
+            alt="Mojo, the MojoCode mascot"
+            width={1122}
+            height={1402}
+            priority
+            className="mojo-float mx-auto h-auto w-full max-w-[340px] rounded-3xl shadow-[0_40px_120px_-30px_oklch(0.45_0.22_272/80%)]"
+          />
+        </div>
+        <p className="relative hidden max-w-sm text-sm leading-relaxed text-white/60 md:block">
+          {BRAND.description}
         </p>
       </div>
 
       {/* right panel */}
-      <div className="flex flex-1 flex-col bg-zinc-950 px-6 py-8 md:px-10 md:py-10">
+      <div className="flex flex-1 flex-col bg-[oklch(0.145_0.03_272)] px-6 py-8 md:px-10 md:py-10">
         <div className="flex w-full flex-1 flex-col">
           <h1 className="mb-6 text-2xl font-semibold tracking-tight text-white">
-            Get Started
+            Let&apos;s get Mojo set up
           </h1>
 
           <div className="flex-1">
@@ -165,7 +157,7 @@ export function GetStartedFlow() {
                     <div className="overflow-hidden">
                       <div className="pb-5">
                         {step.id === 1 && (
-                          <VercelAccountStep
+                          <AccountStep
                             session={session}
                             loading={sessionLoading}
                             onComplete={() => markComplete(1)}
@@ -184,6 +176,10 @@ export function GetStartedFlow() {
                               markComplete(2);
                               router.push(redirectPath);
                             }}
+                            onSkip={async () => {
+                              await skipGitHubOnboarding();
+                              router.push(redirectPath);
+                            }}
                           />
                         )}
                       </div>
@@ -199,9 +195,9 @@ export function GetStartedFlow() {
   );
 }
 
-// step 1: vercel account (display only)
+// step 1: signed-in account (display only)
 
-function VercelAccountStep({
+function AccountStep({
   session,
   loading,
   onComplete,
@@ -217,7 +213,10 @@ function VercelAccountStep({
   return (
     <div className="space-y-3">
       <p className="text-xs text-zinc-500">
-        Signed in via Vercel. This account is used for authentication.
+        Signed in with{" "}
+        {session?.authProvider === "github" ? "GitHub" : "Vercel"}. Your
+        sessions, repos, and settings are private to you unless you share a
+        session.
       </p>
       <div className="flex items-center justify-between rounded-lg border border-white/10 px-3 py-2.5">
         <div className="flex items-center gap-3">
@@ -234,7 +233,7 @@ function VercelAccountStep({
           )}
           <div>
             <p className="text-sm font-medium text-zinc-200">
-              {session?.user?.name ?? session?.user?.username ?? "Vercel"}
+              {session?.user?.name ?? session?.user?.username ?? "You"}
             </p>
             {session?.user?.email && (
               <p className="text-xs text-zinc-600">{session.user.email}</p>
@@ -245,7 +244,7 @@ function VercelAccountStep({
       <Button
         size="sm"
         onClick={onComplete}
-        className="gap-2 bg-white text-black hover:bg-zinc-200"
+        className="gap-2 bg-gradient-mojo text-white shadow-mojo hover:brightness-110"
       >
         Continue
       </Button>
@@ -264,6 +263,7 @@ function GitHubConnectStep({
   connectionDisabled,
   redirectPath,
   onComplete,
+  onSkip,
 }: {
   session: ReturnType<typeof useSession>["session"];
   loading: boolean;
@@ -273,8 +273,31 @@ function GitHubConnectStep({
   connectionDisabled: boolean;
   redirectPath: string;
   onComplete: () => void;
+  onSkip: () => Promise<void>;
 }) {
   const [isLinking, setIsLinking] = useState(false);
+  const [isSkipping, setIsSkipping] = useState(false);
+
+  const skipButton = (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      disabled={isSkipping || isLinking}
+      onClick={async () => {
+        setIsSkipping(true);
+        try {
+          await onSkip();
+        } finally {
+          setIsSkipping(false);
+        }
+      }}
+      className="text-zinc-400 hover:bg-white/5 hover:text-white"
+    >
+      {isSkipping && <Loader2 className="size-4 animate-spin" />}
+      Skip for now
+    </Button>
+  );
   const isConnected =
     !forceReconnect && hasGitHubAccount && hasGitHubInstallations;
   const shouldShowInstallStep =
@@ -295,7 +318,7 @@ function GitHubConnectStep({
         <Button
           size="sm"
           onClick={onComplete}
-          className="gap-2 bg-white text-black hover:bg-zinc-200"
+          className="gap-2 bg-gradient-mojo text-white shadow-mojo hover:brightness-110"
         >
           Continue without GitHub
         </Button>
@@ -337,7 +360,7 @@ function GitHubConnectStep({
         <Button
           size="sm"
           onClick={onComplete}
-          className="gap-2 bg-white text-black hover:bg-zinc-200"
+          className="gap-2 bg-gradient-mojo text-white shadow-mojo hover:brightness-110"
         >
           Get Started
         </Button>
@@ -350,18 +373,23 @@ function GitHubConnectStep({
     return (
       <div className="space-y-3">
         <p className="text-xs text-zinc-500">
-          GitHub account linked. Install the GitHub App to grant repo access.
+          GitHub account linked
+          {session?.user?.username ? ` as @${session.user.username}` : ""}. Last
+          step: choose which repositories Mojo can work in.
         </p>
-        <Button
-          asChild
-          variant="outline"
-          className="gap-2 border-zinc-700 bg-transparent text-zinc-300 hover:bg-white/5 hover:text-white"
-        >
-          <Link href={githubInstallHref}>
-            <Github className="size-4" />
-            Install GitHub App
-          </Link>
-        </Button>
+        <GitHubAccessExplainer />
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            asChild
+            className="gap-2 bg-gradient-mojo text-white shadow-mojo hover:brightness-110"
+          >
+            <Link href={githubInstallHref}>
+              <Github className="size-4" />
+              Choose repositories
+            </Link>
+          </Button>
+          {skipButton}
+        </div>
       </div>
     );
   }
@@ -372,27 +400,61 @@ function GitHubConnectStep({
       <p className="text-xs text-zinc-500">
         {forceReconnect
           ? "Reconnect your GitHub account to restore repository and installation access."
-          : "Connect your GitHub account to clone repos, create PRs, and push code."}
+          : "Want Mojo to work in your repos? Connect GitHub — or skip and just chat for now."}
       </p>
-      <Button
-        variant="outline"
-        disabled={isLinking}
-        onClick={async () => {
-          setIsLinking(true);
-          await authClient.linkSocial({
-            provider: "github",
-            callbackURL: githubPostLinkCallback,
-          });
-        }}
-        className="gap-2 border-zinc-700 bg-transparent text-zinc-300 hover:bg-white/5 hover:text-white"
-      >
-        {isLinking ? (
-          <Loader2 className="size-4 animate-spin" />
-        ) : (
-          <Github className="size-4" />
-        )}
-        {forceReconnect ? "Reconnect GitHub" : "Connect GitHub"}
-      </Button>
+      {!forceReconnect && <GitHubAccessExplainer />}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          disabled={isLinking || isSkipping}
+          onClick={async () => {
+            setIsLinking(true);
+            await authClient.linkSocial({
+              provider: "github",
+              callbackURL: githubPostLinkCallback,
+            });
+          }}
+          className="gap-2 bg-gradient-mojo text-white shadow-mojo hover:brightness-110"
+        >
+          {isLinking ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <Github className="size-4" />
+          )}
+          {forceReconnect ? "Reconnect GitHub" : "Connect GitHub"}
+        </Button>
+        {skipButton}
+      </div>
     </div>
+  );
+}
+
+const GITHUB_ACCESS_POINTS = [
+  {
+    icon: LockKeyhole,
+    text: "You pick the repos. Mojo only sees what you grant, and you can change it any time on GitHub.",
+  },
+  {
+    icon: Server,
+    text: "Code is cloned into a private sandbox per session — never shared with other users.",
+  },
+  {
+    icon: GitPullRequestArrow,
+    text: "Mojo commits to its own branch and opens pull requests. You decide what merges.",
+  },
+];
+
+function GitHubAccessExplainer() {
+  return (
+    <ul className="space-y-2 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+      {GITHUB_ACCESS_POINTS.map((point) => (
+        <li
+          key={point.text}
+          className="flex items-start gap-2.5 text-xs leading-relaxed text-zinc-400"
+        >
+          <point.icon className="mt-0.5 size-3.5 shrink-0 text-mojo-cyan" />
+          {point.text}
+        </li>
+      ))}
+    </ul>
   );
 }

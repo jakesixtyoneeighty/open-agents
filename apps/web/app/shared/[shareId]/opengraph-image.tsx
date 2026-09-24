@@ -8,7 +8,7 @@ import {
   getShareByIdCached,
 } from "@/lib/db/sessions-cache";
 
-export const alt = "Shared Open Agents session";
+export const alt = "Shared MojoCode session";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -108,7 +108,7 @@ export default async function Image({
         display: "flex",
         position: "relative",
         overflow: "hidden",
-        background: "#0a0a0a",
+        background: "#070a1c",
         color: "#ffffff",
         fontFamily:
           'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
@@ -121,7 +121,7 @@ export default async function Image({
           inset: 0,
           display: "flex",
           background:
-            "radial-gradient(ellipse 900px 500px at 15% 20%, rgba(255, 138, 61, 0.12), transparent 60%), radial-gradient(ellipse 700px 500px at 85% 80%, rgba(255, 255, 255, 0.04), transparent 60%)",
+            "radial-gradient(ellipse 900px 500px at 15% 20%, rgba(34, 211, 238, 0.18), transparent 60%), radial-gradient(ellipse 700px 500px at 85% 80%, rgba(168, 85, 247, 0.22), transparent 60%)",
         }}
       />
 
@@ -164,19 +164,13 @@ export default async function Image({
               marginBottom: 32,
             }}
           >
-            <svg viewBox="0 0 24 24" width="26" height="26" fill="none">
+            <svg viewBox="0 0 32 32" width="26" height="26" fill="none">
               <path
-                d="M4 17L10 11L4 5"
-                stroke="rgba(255,255,255,0.5)"
-                strokeWidth="1.5"
+                d="M6 25.5V8.5L16 19.5L26 8.5V25.5"
+                stroke="#6b8cff"
+                strokeWidth="5.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-              />
-              <path
-                d="M12 19H20"
-                stroke="rgba(255,255,255,0.5)"
-                strokeWidth="1.5"
-                strokeLinecap="round"
               />
             </svg>
             <span
@@ -187,7 +181,7 @@ export default async function Image({
                 color: "rgba(255, 255, 255, 0.45)",
               }}
             >
-              Open Agents
+              MojoCode
             </span>
           </div>
 
@@ -419,7 +413,7 @@ function fallbackImage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "#0a0a0a",
+        background: "#070a1c",
         color: "rgba(255, 255, 255, 0.55)",
         fontSize: 42,
         fontWeight: 600,
@@ -428,7 +422,7 @@ function fallbackImage() {
           'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       }}
     >
-      Shared Open Agents session
+      Shared MojoCode session
     </div>,
     { ...size },
   );

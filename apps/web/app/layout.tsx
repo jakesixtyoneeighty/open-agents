@@ -1,16 +1,22 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { JetBrains_Mono, Plus_Jakarta_Sans, Sora } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import { BRAND } from "@/lib/brand";
 import { Providers } from "./providers";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const bodyFont = Plus_Jakarta_Sans({
+  variable: "--font-body",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const displayFont = Sora({
+  variable: "--font-display-face",
+  subsets: ["latin"],
+});
+
+const codeFont = JetBrains_Mono({
+  variable: "--font-code",
   subsets: ["latin"],
 });
 
@@ -23,7 +29,7 @@ const themeInitializationScript = `
   const theme =
     storedTheme === "light" || storedTheme === "dark" || storedTheme === "system"
       ? storedTheme
-      : "system";
+      : "dark";
 
   const resolvedTheme =
     theme === "system"
@@ -51,14 +57,18 @@ const metadataBase =
 export const metadata: Metadata = {
   metadataBase,
   title: {
-    default: "Open Agents",
-    template: "%s | Open Agents",
+    default: BRAND.name,
+    template: `%s | ${BRAND.name}`,
   },
-  description:
-    "Spawn coding agents that run infinitely in the cloud. Powered by AI SDK, Gateway, Sandbox, and Workflow SDK.",
+  description: BRAND.description,
+  applicationName: BRAND.name,
   icons: {
-    icon: faviconPath,
+    icon: [
+      { url: faviconPath },
+      { url: BRAND.assets.icon192, sizes: "192x192", type: "image/png" },
+    ],
     shortcut: faviconPath,
+    apple: BRAND.assets.appleIcon,
   },
   twitter: {
     card: "summary_large_image",
@@ -73,7 +83,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} font-sans overflow-x-hidden antialiased`}
+        className={`${bodyFont.variable} ${displayFont.variable} ${codeFont.variable} font-sans overflow-x-hidden antialiased`}
       >
         <script
           dangerouslySetInnerHTML={{ __html: themeInitializationScript }}

@@ -69,6 +69,13 @@ export async function GET(req: Request): Promise<Response> {
     return NextResponse.redirect(redirectUrl);
   }
 
+  // Sign-in with GitHub passes install=prompt: land on `next` and let the
+  // onboarding screen ask whether to grant repo access.
+  if (requestUrl.searchParams.get("install") === "prompt") {
+    redirectUrl.searchParams.set("github", "needs_install");
+    return NextResponse.redirect(redirectUrl);
+  }
+
   // no installations at all — route through the internal install flow so it can
   // preserve the intended destination across the GitHub App setup callback.
   const installUrl = new URL("/api/github/app/install", req.url);

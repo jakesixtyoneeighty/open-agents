@@ -1,6 +1,7 @@
 "use client";
 
 import { History } from "lucide-react";
+import { MojoLogo } from "@/components/brand/mojo-logo";
 import { SessionStarter } from "@/components/session-starter";
 
 const NOOP = () => {};
@@ -14,7 +15,7 @@ export function HomeSkeleton({ lastRepo = null }: HomeSkeletonProps) {
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       <header className="flex items-center justify-between px-6 py-4 sm:grid sm:grid-cols-[1fr_auto_1fr]">
         <div className="flex items-center gap-2 sm:justify-self-start">
-          <span className="text-lg font-semibold">Open Agents</span>
+          <MojoLogo />
         </div>
         <div className="hidden sm:block" />
         <div className="flex items-center gap-2 sm:justify-self-end">
@@ -33,8 +34,9 @@ export function HomeSkeleton({ lastRepo = null }: HomeSkeletonProps) {
       </header>
 
       <main className="flex flex-1 flex-col items-center px-6 pt-8 sm:pt-16">
-        <h1 className="mb-8 text-3xl font-light text-foreground">
-          What should we ship next?
+        <div className="mb-5 size-16 animate-pulse rounded-full bg-gradient-mojo-soft" />
+        <h1 className="mb-8 text-center text-3xl font-semibold tracking-tight">
+          What should <span className="text-gradient-mojo">we ship</span> next?
         </h1>
 
         <SessionStarter onSubmit={NOOP} isLoading lastRepo={lastRepo} />

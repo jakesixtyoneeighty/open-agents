@@ -13,6 +13,7 @@ import {
 } from "react";
 import { Toaster } from "sonner";
 import { SWRConfig } from "swr";
+import { MojoBananaMode } from "@/components/brand/mojo-banana-mode";
 import { GitHubReconnectGate } from "@/components/github-reconnect-gate";
 import { authClient } from "@/lib/auth/client";
 import { FetchError } from "@/lib/swr";
@@ -54,7 +55,7 @@ function applyTheme(resolvedTheme: ResolvedTheme) {
 export function Providers({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const signingOut = useRef(false);
-  const [theme, setThemeState] = useState<ThemePreference>("system");
+  const [theme, setThemeState] = useState<ThemePreference>("dark");
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("dark");
 
   const applyThemePreference = useCallback((nextTheme: ThemePreference) => {
@@ -66,9 +67,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
-    const initialTheme = isThemePreference(storedTheme)
-      ? storedTheme
-      : "system";
+    const initialTheme = isThemePreference(storedTheme) ? storedTheme : "dark";
 
     setThemeState(initialTheme);
     applyThemePreference(initialTheme);
@@ -137,7 +136,16 @@ export function Providers({ children }: { children: React.ReactNode }) {
           <GitHubReconnectGate />
         </Suspense>
       </SWRConfig>
-      <Toaster theme={resolvedTheme} />
+      <MojoBananaMode />
+      <Toaster
+        theme={resolvedTheme}
+        toastOptions={{
+          classNames: {
+            toast:
+              "!rounded-xl !border-border !bg-popover/90 !backdrop-blur-xl !shadow-mojo",
+          },
+        }}
+      />
     </ThemeContext.Provider>
   );
 }
