@@ -367,16 +367,6 @@ function makeOptions(overrides?: Record<string, unknown>) {
     chatId: "chat-1",
     sessionId: "session-1",
     userId: "user-1",
-    requestUrl: "http://localhost/api/chat",
-    authSession: {
-      authProvider: "vercel" as const,
-      user: {
-        id: "user-1",
-        username: "user",
-        email: "user@example.com",
-        avatar: "",
-      },
-    },
     selectedModelId: "gpt-4",
     modelId: "gpt-4",
     agentOptions: {},

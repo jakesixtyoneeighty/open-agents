@@ -42,14 +42,8 @@ import {
 import { dedupeMessageReasoning } from "@/lib/chat/dedupe-message-reasoning";
 import { getChatById, getSessionById } from "@/lib/db/sessions";
 import { getUserPreferences } from "@/lib/db/user-preferences";
-import {
-  filterModelVariantsForSession,
-  sanitizeSelectedModelIdForSession,
-  sanitizeUserPreferencesForSession,
-} from "@/lib/model-access";
 import { getAllVariants } from "@/lib/model-variants";
 import { APP_DEFAULT_MODEL_ID } from "@/lib/models";
-import type { Session as AuthSession } from "@/lib/session/types";
 import type {
   WorkflowRunStatus,
   WorkflowRunStepTiming,
@@ -57,15 +51,11 @@ import type {
 import { resolveChatModelSelection } from "../api/chat/_lib/model-selection";
 import { resolveChatSandboxRuntime } from "./chat-sandbox-runtime";
 
-type AuthSessionContext = Pick<AuthSession, "authProvider" | "user"> | null;
-
 type Options = {
   messages: WebAgentUIMessage[];
   chatId: string;
   sessionId: string;
   userId: string;
-  requestUrl: string;
-  authSession: AuthSessionContext;
   selectedModelId?: string;
   modelId?: string;
   agentOptions?: Omit<OpenAgentCallOptions, "sandbox" | "skills">;
@@ -144,12 +134,10 @@ async function resolveChatModelRuntime(params: {
   userId: string;
   sessionId: string;
   chatId: string;
-  requestUrl: string;
-  authSession: AuthSessionContext;
 }): Promise<ChatModelRuntime> {
   "use step";
 
-  const [sessionRecord, chat, rawPreferences] = await Promise.all([
+  const [sessionRecord, chat, preferences] = await Promise.all([
     getSessionById(params.sessionId),
     getChatById(params.chatId),
     getUserPreferences(params.userId).catch((error) => {
@@ -168,27 +156,8 @@ async function resolveChatModelRuntime(params: {
     throw new Error("Chat not found");
   }
 
-  const preferences = rawPreferences
-    ? sanitizeUserPreferencesForSession(
-        rawPreferences,
-        params.authSession,
-        params.requestUrl,
-      )
-    : null;
-  const modelVariants = filterModelVariantsForSession(
-    getAllVariants(preferences?.modelVariants ?? []),
-    params.authSession,
-    params.requestUrl,
-  );
-  const selectedModelId =
-    sanitizeSelectedModelIdForSession(
-      chat.modelId,
-      modelVariants,
-      params.authSession,
-      params.requestUrl,
-    ) ??
-    chat.modelId ??
-    null;
+  const modelVariants = getAllVariants(preferences?.modelVariants ?? []);
+  const selectedModelId = chat.modelId ?? null;
   const mainModelSelection = resolveChatModelSelection({
     selectedModelId,
     modelVariants,
@@ -196,12 +165,7 @@ async function resolveChatModelRuntime(params: {
   });
   const subagentModelSelection = preferences?.defaultSubagentModelId
     ? resolveChatModelSelection({
-        selectedModelId: sanitizeSelectedModelIdForSession(
-          preferences.defaultSubagentModelId,
-          modelVariants,
-          params.authSession,
-          params.requestUrl,
-        ),
+        selectedModelId: preferences.defaultSubagentModelId,
         modelVariants,
         missingVariantLabel: "Subagent model variant",
       })
@@ -615,8 +579,6 @@ export async function runAgentWorkflow(options: Options) {
     userId: options.userId,
     sessionId: options.sessionId,
     chatId: options.chatId,
-    requestUrl: options.requestUrl,
-    authSession: options.authSession,
   });
   const runtimePromise = resolveChatSandboxRuntime({
     userId: options.userId,

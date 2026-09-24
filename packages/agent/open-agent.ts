@@ -6,6 +6,7 @@ import {
   type GatewayModelId,
   gateway,
   type ProviderOptionsByProvider,
+  type ReasoningEffort,
 } from "./models";
 
 import type { SkillMetadata } from "./skills/types";
@@ -48,8 +49,12 @@ const callOptionsSchema = z.object({
 
 export type OpenAgentCallOptions = z.infer<typeof callOptionsSchema>;
 
-export const defaultModelLabel = "anthropic/claude-opus-4.6" as const;
-export const defaultModel = gateway(defaultModelLabel);
+export const defaultModelLabel = "openai/gpt-6-astra" as const;
+/** Reasoning level for the main agent, whichever model the user selects. */
+const MAIN_REASONING_EFFORT: ReasoningEffort = "high";
+export const defaultModel = gateway(defaultModelLabel, {
+  reasoningEffort: MAIN_REASONING_EFFORT,
+});
 
 function normalizeAgentModelSelection(
   selection: OpenAgentModelInput | undefined,
@@ -105,6 +110,7 @@ export const openAgent = new ToolLoopAgent({
 
     const callModel = gateway(mainSelection.id, {
       providerOptionsOverrides: mainSelection.providerOptionsOverrides,
+      reasoningEffort: MAIN_REASONING_EFFORT,
     });
     const subagentModel = subagentSelection
       ? gateway(subagentSelection.id, {

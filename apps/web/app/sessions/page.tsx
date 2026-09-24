@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { isManagedTemplateTrialUser } from "@/lib/managed-template-trial";
 import { needsOnboarding } from "@/lib/onboarding";
 import { GITHUB_PROMPT_DISMISSED_COOKIE } from "@/lib/onboarding-prompt";
 import { getServerSession } from "@/lib/session/get-server-session";
@@ -23,9 +22,6 @@ async function shouldPromptForGitHub(): Promise<boolean> {
 
   const cookieStore = await cookies();
   if (cookieStore.has(GITHUB_PROMPT_DISMISSED_COOKIE)) return false;
-
-  const requestHost = (await headers()).get("host") ?? "";
-  if (isManagedTemplateTrialUser(session, requestHost)) return false;
 
   return needsOnboarding(session.user.id);
 }

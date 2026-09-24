@@ -1,6 +1,7 @@
 import { connectSandbox, type Sandbox } from "@open-agents/sandbox";
 import type { LanguageModel, ModelMessage } from "ai";
 import * as path from "path";
+import { gateway, type ModelConfig } from "../models";
 import type { AgentContext } from "../types";
 
 function isAgentContext(value: unknown): value is AgentContext {
@@ -149,11 +150,13 @@ export function getModel(
 }
 
 /**
- * Get subagent model from experimental context, falling back to the main model.
- * Returns the dedicated subagent model if configured, otherwise the main agent model.
+ * Get the model for a subagent run.
+ * Returns the user's subagent model override if configured, otherwise the
+ * subagent's own default model and reasoning level.
  */
 export function getSubagentModel(
   experimental_context: unknown,
+  defaultModel: ModelConfig,
   toolName?: string,
 ): LanguageModel {
   const context = isAgentContext(experimental_context)
@@ -166,7 +169,12 @@ export function getSubagentModel(
         "Ensure the agent's prepareCall sets experimental_context: { model, ... }",
     );
   }
-  return context.subagentModel ?? context.model;
+  return (
+    context.subagentModel ??
+    gateway(defaultModel.id, {
+      reasoningEffort: defaultModel.reasoningEffort,
+    })
+  );
 }
 
 /**

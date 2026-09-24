@@ -37,12 +37,6 @@ let ownedSessionResult: OwnedSessionResult = {
   ok: true,
   sessionRecord: { id: "session-1" },
 };
-let currentSession: {
-  authProvider?: "vercel" | "github";
-  user: { id: string; email?: string; username?: string; avatar?: string };
-} | null = {
-  user: { id: "user-1" },
-};
 
 let chatSummaries: ChatSummary[] = [{ id: "chat-1", title: "Chat 1" }];
 let existingChat: ChatRecord | null = null;
@@ -68,10 +62,6 @@ mock.module("@/app/api/sessions/_lib/session-context", () => ({
 
 mock.module("nanoid", () => ({
   nanoid: () => "generated-chat-id",
-}));
-
-mock.module("@/lib/session/get-server-session", () => ({
-  getServerSession: async () => currentSession,
 }));
 
 mock.module("@/lib/db/sessions", () => ({
@@ -131,7 +121,6 @@ describe("/api/sessions/[sessionId]/chats", () => {
       ok: true,
       sessionRecord: { id: "session-1" },
     };
-    currentSession = { user: { id: "user-1" } };
     chatSummaries = [{ id: "chat-1", title: "Chat 1" }];
     existingChat = null;
     createdChat = {

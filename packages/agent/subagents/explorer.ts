@@ -1,5 +1,6 @@
 import type { LanguageModel } from "ai";
-import { gateway, stepCountIs, ToolLoopAgent } from "ai";
+import { stepCountIs, ToolLoopAgent } from "ai";
+import { gateway, type ModelConfig } from "../models";
 import { z } from "zod";
 import { bashTool } from "../tools/bash";
 import { globTool } from "../tools/glob";
@@ -73,8 +74,15 @@ const callOptionsSchema = z.object({
 
 export type ExplorerCallOptions = z.infer<typeof callOptionsSchema>;
 
+export const EXPLORER_MODEL: ModelConfig = {
+  id: "google/gemini-3.8-flash",
+  reasoningEffort: "medium",
+};
+
 export const explorerSubagent = new ToolLoopAgent({
-  model: gateway("anthropic/claude-haiku-4.5"),
+  model: gateway(EXPLORER_MODEL.id, {
+    reasoningEffort: EXPLORER_MODEL.reasoningEffort,
+  }),
   instructions: EXPLORER_SYSTEM_PROMPT,
   tools: {
     read: readFileTool(),

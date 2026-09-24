@@ -33,7 +33,6 @@ export function GetStartedFlow() {
     hasGitHubAccount,
     hasGitHubInstallations,
   } = useSession();
-  const isTrialUser = session?.isManagedTemplateTrialUser ?? false;
   const isGitHubReconnect = searchParams.get("step") === "github";
   const redirectPath = sanitizeInternalRedirect(
     searchParams.get("next"),
@@ -170,7 +169,6 @@ export function GetStartedFlow() {
                             hasGitHubAccount={hasGitHubAccount}
                             hasGitHubInstallations={hasGitHubInstallations}
                             forceReconnect={isGitHubReconnect}
-                            connectionDisabled={isTrialUser}
                             redirectPath={redirectPath}
                             onComplete={() => {
                               markComplete(2);
@@ -260,7 +258,6 @@ function GitHubConnectStep({
   hasGitHubAccount,
   hasGitHubInstallations,
   forceReconnect,
-  connectionDisabled,
   redirectPath,
   onComplete,
   onSkip,
@@ -270,7 +267,6 @@ function GitHubConnectStep({
   hasGitHubAccount: boolean;
   hasGitHubInstallations: boolean;
   forceReconnect: boolean;
-  connectionDisabled: boolean;
   redirectPath: string;
   onComplete: () => void;
   onSkip: () => Promise<void>;
@@ -307,23 +303,6 @@ function GitHubConnectStep({
 
   if (loading) {
     return <Skeleton className="h-10 w-full rounded bg-white/5" />;
-  }
-
-  if (connectionDisabled) {
-    return (
-      <div className="space-y-3">
-        <p className="text-xs text-zinc-500">
-          In the hosted demo, you can start chats without connecting GitHub.
-        </p>
-        <Button
-          size="sm"
-          onClick={onComplete}
-          className="gap-2 bg-gradient-mojo text-white shadow-mojo hover:brightness-110"
-        >
-          Continue without GitHub
-        </Button>
-      </div>
-    );
   }
 
   if (isConnected) {

@@ -27,15 +27,11 @@ interface TestChatRecord {
 let sessionRecord: TestSessionRecord | null;
 let chatRecord: TestChatRecord | null;
 let currentAuthSession: {
-  authProvider?: "vercel" | "github";
   user: {
     id: string;
-    email?: string;
   };
 } | null;
-let existingUserMessageCount = 0;
 let existingChatMessage: { id: string } | null = null;
-let existingScopedChatMessage: { id: string } | null = null;
 let isSandboxActive = true;
 let existingRunStatus: string = "completed";
 let getRunShouldThrow = false;
@@ -175,11 +171,9 @@ mock.module("@open-agents/sandbox", () => ({
 mock.module("@/lib/db/sessions", () => ({
   claimChatActiveStreamId: claimChatActiveStreamIdSpy,
   compareAndSetChatActiveStreamId: compareAndSetChatActiveStreamIdSpy,
-  countUserMessagesByUserId: async () => existingUserMessageCount,
   createChatMessageIfNotExists: createChatMessageIfNotExistsSpy,
   getChatById: async () => chatRecord,
   getChatMessageById: async () => existingChatMessage,
-  getChatMessageByIdForChat: async () => existingScopedChatMessage,
   getSessionById: async () => sessionRecord,
   isFirstChatMessage: isFirstChatMessageSpy,
   touchChat: touchChatSpy,
@@ -226,8 +220,8 @@ afterAll(() => {
   globalThis.fetch = originalFetch;
 });
 
-function createRequest(body: string, url = "http://localhost/api/chat") {
-  return new Request(url, {
+function createRequest(body: string) {
+  return new Request("http://localhost/api/chat", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -265,9 +259,7 @@ describe("/api/chat route", () => {
     routeEvents = [];
     cachedSkillsState = null;
     discoverSkillDirsCalls = [];
-    existingUserMessageCount = 0;
     existingChatMessage = null;
-    existingScopedChatMessage = null;
     preferencesState = {
       autoCommitPush: true,
       autoCreatePr: false,
@@ -351,76 +343,6 @@ describe("/api/chat route", () => {
     );
   });
 
-  test("blocks a sixth message for managed template trial users", async () => {
-    const { POST } = await routeModulePromise;
-    currentAuthSession = {
-      authProvider: "vercel",
-      user: {
-        id: "user-1",
-        email: "person@example.com",
-      },
-    };
-    existingUserMessageCount = 5;
-
-    const response = await POST(
-      createRequest(
-        JSON.stringify({
-          sessionId: "session-1",
-          chatId: "chat-1",
-          messages: [
-            {
-              id: "user-6",
-              role: "user",
-              parts: [{ type: "text", text: "One more thing" }],
-            },
-          ],
-        }),
-        "https://open-agents.dev/api/chat",
-      ),
-    );
-    const body = (await response.json()) as { error: string };
-
-    expect(response.status).toBe(403);
-    expect(body.error).toBe(
-      "This hosted demo has a 5 message limit. Deploy your own copy to unlock the full MojoCode template.",
-    );
-    expect(startCalls).toHaveLength(0);
-  });
-
-  test("does not let trial users replay a message id from another chat", async () => {
-    const { POST } = await routeModulePromise;
-    currentAuthSession = {
-      authProvider: "vercel",
-      user: {
-        id: "user-1",
-        email: "person@example.com",
-      },
-    };
-    existingUserMessageCount = 5;
-    existingChatMessage = { id: "user-1" };
-    existingScopedChatMessage = null;
-
-    const response = await POST(
-      createRequest(
-        JSON.stringify({
-          sessionId: "session-1",
-          chatId: "chat-1",
-          messages: [
-            {
-              id: "user-1",
-              role: "user",
-              parts: [{ type: "text", text: "Replay this" }],
-            },
-          ],
-        }),
-        "https://open-agents.dev/api/chat",
-      ),
-    );
-
-    expect(response.status).toBe(403);
-    expect(startCalls).toHaveLength(0);
-  });
-
   test("passes the 500 maxSteps limit to the workflow", async () => {
     const { POST } = await routeModulePromise;
 
@@ -432,8 +354,6 @@ describe("/api/chat route", () => {
       expect.objectContaining({
         assistantId: "gen-id-1",
         maxSteps: 500,
-        requestUrl: "http://localhost/api/chat",
-        authSession: currentAuthSession,
       }),
     ]);
   });

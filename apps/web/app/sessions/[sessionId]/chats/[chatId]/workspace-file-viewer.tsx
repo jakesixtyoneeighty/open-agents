@@ -28,7 +28,6 @@ import { cn } from "@/lib/utils";
 
 type WorkspaceFileViewerProps = {
   editorBusy?: boolean;
-  editorDisabledReason?: string | null;
   filePath: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -213,7 +212,6 @@ function ViewModeToggle({
 
 function ViewerBody({
   editorBusy,
-  editorDisabledReason,
   errorMessage,
   filePath,
   isLoading,
@@ -224,7 +222,6 @@ function ViewerBody({
   response,
 }: {
   editorBusy?: boolean;
-  editorDisabledReason?: string | null;
   errorMessage: string | null;
   filePath: string;
   isLoading: boolean;
@@ -246,7 +243,7 @@ function ViewerBody({
   const contentRef = useRef<HTMLDivElement>(null);
   const openInEditorTitle = editorBusy
     ? "Starting editor…"
-    : (editorDisabledReason ?? "Open in code editor");
+    : "Open in code editor";
 
   return (
     <>
@@ -266,7 +263,7 @@ function ViewerBody({
               type="button"
               variant="ghost"
               size="sm"
-              disabled={editorBusy || editorDisabledReason != null}
+              disabled={editorBusy}
               onClick={onOpenInEditor}
               className="h-7 shrink-0 gap-1.5 px-2 text-xs"
               title={openInEditorTitle}
@@ -348,7 +345,6 @@ function ViewerBody({
 
 export function WorkspaceFileViewer({
   editorBusy,
-  editorDisabledReason,
   filePath,
   open,
   onOpenChange,
@@ -389,7 +385,6 @@ export function WorkspaceFileViewer({
     <ViewerBody
       key={filePath}
       editorBusy={editorBusy}
-      editorDisabledReason={editorDisabledReason}
       errorMessage={errorMessage}
       filePath={filePath}
       isLoading={isLoading}

@@ -1010,7 +1010,6 @@ export function SessionChatContent({
   messageDurationMap,
   messageStartedAtMap,
   lastUserMessageSentAt,
-  codeEditorDisabledReason,
 }: {
   initialIsOnlyChatInSession: boolean;
   /** Pre-computed generation duration (ms) per assistant message ID */
@@ -1019,7 +1018,6 @@ export function SessionChatContent({
   messageStartedAtMap: Record<string, string>;
   /** Fallback: last user message's createdAt, for refresh-during-stream */
   lastUserMessageSentAt: string | null;
-  codeEditorDisabledReason: string | null;
 }) {
   const router = useRouter();
   const [input, setInput] = useState("");
@@ -2708,7 +2706,6 @@ export function SessionChatContent({
     !isReconnectingSandbox &&
     !isHibernatingUi;
   const canUseSandboxActions = !isArchived;
-  const canUseCodeEditor = codeEditorDisabledReason === null;
   const ensureSandboxReadyForAction =
     useCallback(async (): Promise<boolean> => {
       if (isSandboxActive) {
@@ -2774,11 +2771,10 @@ export function SessionChatContent({
   });
   const codeEditor = useCodeEditor({
     sessionId: session.id,
-    canRun: canRunDevServer && canUseCodeEditor,
+    canRun: canRunDevServer,
     ensureSandboxReady: ensureSandboxReadyForAction,
   });
   const isCodeEditorActionDisabled =
-    !canUseCodeEditor ||
     codeEditor.state.status === "starting" ||
     codeEditor.state.status === "stopping";
 
@@ -3089,7 +3085,7 @@ export function SessionChatContent({
                     side="bottom"
                     className="max-w-72 text-pretty"
                   >
-                    {codeEditorDisabledReason ?? codeEditor.menuLabel}
+                    {codeEditor.menuLabel}
                   </TooltipContent>
                 </Tooltip>
                 <div className="hidden h-7 items-center sm:flex">
@@ -4388,7 +4384,6 @@ export function SessionChatContent({
           codeEditor.state.status === "starting" ||
           codeEditor.state.status === "stopping"
         }
-        editorDisabledReason={codeEditorDisabledReason}
         onOpenInEditor={(filePath) => {
           void codeEditor.handleOpenFile(filePath);
         }}

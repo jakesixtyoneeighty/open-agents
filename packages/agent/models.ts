@@ -9,16 +9,32 @@ import {
 import type { AnthropicLanguageModelOptions } from "@ai-sdk/anthropic";
 import type { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 
+// Claude 4.6+ (including all 5.x models) use adaptive thinking.
 function supportsAdaptiveAnthropicThinking(modelId: string): boolean {
-  return modelId.includes("4.6") || modelId.includes("4.7");
+  const match = /claude-[a-z]+-(\d+)(?:[.-](\d+))?/.exec(modelId);
+  if (!match) {
+    return false;
+  }
+
+  const major = Number(match[1]);
+  const minor = Number(match[2] ?? 0);
+  return major > 4 || (major === 4 && minor >= 6);
 }
+
+/** Provider-agnostic reasoning level, mapped to each provider's own option. */
+export type ReasoningEffort = "low" | "medium" | "high";
+
+const DEFAULT_REASONING_EFFORT: ReasoningEffort = "medium";
 
 // Models with adaptive thinking support use effort control.
 // Older models use the legacy extended thinking API with a budget.
-function getAnthropicSettings(modelId: string): AnthropicLanguageModelOptions {
+function getAnthropicSettings(
+  modelId: string,
+  reasoningEffort: ReasoningEffort,
+): AnthropicLanguageModelOptions {
   if (supportsAdaptiveAnthropicThinking(modelId)) {
     return {
-      effort: "medium",
+      effort: reasoningEffort,
       thinking: { type: "adaptive" },
     } satisfies AnthropicLanguageModelOptions;
   }
@@ -87,6 +103,12 @@ export function mergeProviderOptions(
   return merged;
 }
 
+/** A model plus the reasoning level it should run at. */
+export interface ModelConfig {
+  id: GatewayModelId;
+  reasoningEffort?: ReasoningEffort;
+}
+
 export interface GatewayConfig {
   baseURL: string;
   apiKey: string;
@@ -95,6 +117,8 @@ export interface GatewayConfig {
 export interface GatewayOptions {
   config?: GatewayConfig;
   providerOptionsOverrides?: ProviderOptionsByProvider;
+  /** Reasoning level; explicit `providerOptionsOverrides` still take precedence. */
+  reasoningEffort?: ReasoningEffort;
   appName?: string;
   appUrl?: string;
 }
@@ -102,7 +126,9 @@ export interface GatewayOptions {
 export type { GatewayModelId, LanguageModel, JSONValue };
 
 export function shouldApplyOpenAIReasoningDefaults(modelId: string): boolean {
-  return modelId.startsWith("openai/gpt-5");
+  return (
+    modelId.startsWith("openai/gpt-5") || modelId.startsWith("openai/gpt-6")
+  );
 }
 
 function shouldApplyOpenAITextVerbosityDefaults(modelId: string): boolean {
@@ -112,13 +138,17 @@ function shouldApplyOpenAITextVerbosityDefaults(modelId: string): boolean {
 export function getProviderOptionsForModel(
   modelId: string,
   providerOptionsOverrides?: ProviderOptionsByProvider,
+  reasoningEffort?: ReasoningEffort,
 ): ProviderOptionsByProvider {
   const defaultProviderOptions: ProviderOptionsByProvider = {};
 
   // Apply anthropic defaults
   if (modelId.startsWith("anthropic/")) {
     defaultProviderOptions.anthropic = toProviderOptionsRecord(
-      getAnthropicSettings(modelId),
+      getAnthropicSettings(
+        modelId,
+        reasoningEffort ?? DEFAULT_REASONING_EFFORT,
+      ),
     );
   }
 
@@ -129,7 +159,7 @@ export function getProviderOptionsForModel(
     } satisfies OpenAIResponsesProviderOptions);
   }
 
-  // Apply OpenAI defaults for all GPT-5 variants to expose encrypted reasoning content.
+  // Apply OpenAI defaults for all GPT-5 and GPT-6 variants to expose encrypted reasoning content.
   // This avoids Responses API failures when `store: false`, e.g.:
   // "Item with id 'rs_...' not found. Items are not persisted when `store` is set to false."
   if (shouldApplyOpenAIReasoningDefaults(modelId)) {
@@ -140,6 +170,22 @@ export function getProviderOptionsForModel(
         include: ["reasoning.encrypted_content"],
       } satisfies OpenAIResponsesProviderOptions),
     );
+  }
+
+  if (reasoningEffort && shouldApplyOpenAIReasoningDefaults(modelId)) {
+    defaultProviderOptions.openai = mergeRecords(
+      defaultProviderOptions.openai ?? {},
+      toProviderOptionsRecord({
+        reasoningEffort,
+      } satisfies OpenAIResponsesProviderOptions),
+    );
+  }
+
+  // Gemini 3+ models use a thinking level rather than a token budget.
+  if (reasoningEffort && modelId.startsWith("google/gemini-3")) {
+    defaultProviderOptions.google = {
+      thinkingConfig: { thinkingLevel: reasoningEffort },
+    };
   }
 
   if (shouldApplyOpenAITextVerbosityDefaults(modelId)) {
@@ -173,7 +219,8 @@ export function gateway(
   modelId: GatewayModelId,
   options: GatewayOptions = {},
 ): LanguageModel {
-  const { config, providerOptionsOverrides, appName, appUrl } = options;
+  const { config, providerOptionsOverrides, reasoningEffort, appName, appUrl } =
+    options;
 
   const attributionHeaders = {
     "http-referer": appUrl ?? "https://open-agents.dev",
@@ -193,6 +240,7 @@ export function gateway(
   const providerOptions = getProviderOptionsForModel(
     modelId,
     providerOptionsOverrides,
+    reasoningEffort,
   );
 
   if (Object.keys(providerOptions).length > 0) {

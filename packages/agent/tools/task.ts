@@ -90,10 +90,10 @@ IMPORTANT:
     { experimental_context, abortSignal },
   ) {
     const sandboxContext = getSandboxContext(experimental_context, "task");
-    const model = getSubagentModel(experimental_context, "task");
+    const { agent: subagent, model: defaultModel } =
+      SUBAGENT_REGISTRY[subagentType];
+    const model = getSubagentModel(experimental_context, defaultModel, "task");
     const subagentModelId = typeof model === "string" ? model : model.modelId;
-
-    const subagent = SUBAGENT_REGISTRY[subagentType].agent;
 
     const result = await subagent.stream({
       prompt:
