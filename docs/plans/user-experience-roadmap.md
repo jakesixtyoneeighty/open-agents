@@ -12,9 +12,9 @@ Deviation (2026-09-24): increment 3 was skipped because it needs an infrastructu
 | 5 | Separate closing from deleting — implemented locally | Closed tabs remain in history; permanent deletion stays explicit. `chats.closed_at` column (migration 0037); tab X closes, closed chats menu reopens or deletes with confirmation. Route + fixture browser checks passed; live authenticated acceptance pending. |
 | 6 | Accurate outcome alerts — implemented locally | Completed, stopped, failed, and needs-input states derive from authoritative outcomes. |
 | 7 | Focused quality passes — implemented locally | Bounded mobile/accessibility/code review produces findings before requested fixes. |
-| 8 | Diff review progress — user reports completed | Reviewed files and next-unreviewed navigation; edits invalidate reviewed status. |
-| 9 | Repository preferences — user reports completed | Owner-scoped model, skills, startup/check commands and instructions reused across sessions. |
-| 10 | Preview beside chat — in progress with user | Responsive widths, refresh and external fallback; preserve browser origin isolation. |
+| 8 | Diff review progress — implemented locally | Reviewed files and next-unreviewed navigation; edits invalidate reviewed status. Per-session localStorage marks fingerprinted on each file's patch against base (`lib/diff-review-storage.ts`, `hooks/use-diff-review.ts`); "Viewed" toggle, `n/m viewed` count and next-unreviewed button in the diff tab, checkmarks in the git panel. Unit tests and CI passed; browser check and live authenticated acceptance pending. |
+| 9 | Repository preferences — implemented locally | Owner-scoped model, skills, startup/check commands and instructions reused across sessions. `repo_preferences` table (migration 0039), Settings → Repositories, applied at session/chat creation, provisioning and every agent turn. Route, workflow and unit tests plus CI passed; browser check and live authenticated acceptance pending. |
+| 10 | Preview beside chat — implemented locally | Responsive widths, refresh and external fallback; preserve browser origin isolation. `preview-pane.tsx` + `hooks/use-preview-pane.ts`; the frame only loads an https URL on an origin other than the app's (`lib/preview/preview-frame.ts`). Unit tests and CI passed; browser check and live authenticated acceptance pending. |
 
 Each increment must preserve session ownership checks, durable state, truthful verification claims, and existing in-progress work. Publishing/deployment is a separate step. No production changes are authorized by this roadmap alone.
 
@@ -104,4 +104,68 @@ Each increment must preserve session ownership checks, durable state, truthful v
 - Validation: full CI and fixture browser checks (real controls with stubbed responses) cover review → findings → scoped fixes, failed send/retry, end review, mobile dialog at 390px without overflow, and no browser console errors. Unit/workflow tests cover API validation, mode persistence, the fail-closed tool allowlist, no Git automation, and the enforced step cap.
 - Pending: live authenticated model review, real preview screenshots, and fixes against a sandbox. No deployment performed.
 
-Coordination: the user reported increments 8 and 9 complete and is implementing 10. Those implementations were not revalidated as part of increments 6 and 7.
+Integration: increments 8–10 were built on a separate branch and merged with 6 and 7 on `ux-roadmap-6-10`. Migrations were renumbered so 0038 is `chats.last_outcome` and 0039 is `repo_preferences`, and full CI passed on the combined tree.
+
+### 8. Diff review progress — implemented locally
+
+**Behavior**
+- Each file header in the diff tab has a "Viewed" toggle. Marking a file viewed collapses it and keeps its header in view. The toolbar shows `n/m viewed` for the current scope, plus a "Next unreviewed file" button that expands and scrolls to the next unviewed file after the one you last worked on, wrapping around. It is disabled when every file is viewed.
+- A mark stores a fingerprint of the file's patch against the base branch (plus status, line counts and old path, which stand in for generated files that have no patch). Any later edit changes the fingerprint, so the file shows as unviewed again. A revert to the reviewed content shows as viewed again. Committing leaves the patch against the base unchanged, so marks survive commits, and they are shared between the uncommitted and branch scopes.
+- The git panel's file list shows a checkmark and muted name for viewed files. Both views read the same store, so they stay in sync (other browser tabs sync through the `storage` event).
+- Marks are per browser, keyed `open-agents:diff-review:<sessionId>`. Marks for files that are no longer changed, or that were edited since, are pruned on the next write.
+
+**Changes**
+- `apps/web/lib/diff-review-storage.ts` (+ `.test.ts`): fingerprinting, tolerant storage read/write, mark set/clear with pruning, and `findNextUnreviewedPath`.
+- `apps/web/app/sessions/[sessionId]/chats/[chatId]/hooks/use-diff-review.ts`: a `useSyncExternalStore` hook shared by both views.
+- `diff-tab-view.tsx`: Viewed toggle (a sibling button, not nested in the header button), count and next-unreviewed navigation. `git-panel.tsx`: viewed indicator.
+- Not changed: the older full-screen `diff-viewer.tsx` dialog.
+
+**Validation evidence**
+- `pnpm run ci` passed. New tests cover fingerprint changes, invalidation on edit, pruning, malformed or throwing storage, and next-unreviewed ordering and wrapping.
+- Browser check not done. The preview server config lives in the main checkout's `.claude/launch.json`, which this worktree session could not edit. A fixture page was written and then removed unused.
+
+### 9. Repository preferences — implemented locally
+
+**Decisions**
+- Preferences are keyed by `(user_id, repo_owner, repo_name)`, lowercased like `vercel_project_links`. Only the owning user can read or write them, and every API route derives the user from the session.
+- Null or blank fields fall back to account defaults. Repository skills are added to the user's global skills, with duplicates removed.
+- The model applies when a chat is created (the first chat in a session and new chats); changing a chat's model later is untouched. Instructions and the check command are read on every agent turn, so edits reach sessions that are already running. Skills and the setup command apply when a sandbox is set up.
+
+**Behavior**
+- Settings → Repositories: add a repository (`owner/repo` or a GitHub URL), then set the model (or "Use my default model"), skills, setup command, check command and instructions. There is save/discard and a confirmed removal.
+- Setup command: runs in the repo root after global skills when a fresh workspace is set up (provisioning workflow and `POST /api/sandbox`), with a 4-minute timeout. A failure is logged and does not fail provisioning. The agent is told the command exists and that its outcome is not reported, so it can re-run it.
+- Check command and instructions: added to the agent's project-specific instructions under "Repository preferences". The agent is told to run the check command before reporting work as done and to report the real result.
+
+**Changes**
+- `apps/web/lib/db/schema.ts`: `repo_preferences` table. Migration `lib/db/migrations/0039_*.sql` (renumbered from 0038 at integration) creates the table only; no drift.
+- `apps/web/lib/db/repo-preferences.ts`: get, get-for-session, list, upsert, delete.
+- `apps/web/lib/repo-preferences/`: `schema.ts` (Zod input, limits, coordinate validation that rejects `.`/`..`), `resolve.ts` (model fallback, skill merge, prompt text), `parse-repo.ts`, `setup-command.ts` and `session-setup-command.ts`, each with tests where pure.
+- Routes: `GET /api/settings/repo-preferences`; `GET|PUT|DELETE /api/settings/repo-preferences/[owner]/[repo]` (+ tests).
+- Applied in `app/api/sessions/route.ts`, `app/api/sessions/[sessionId]/chats/route.ts` (GET's `defaultModelId` also reflects the repo model), `app/workflows/chat.ts`, `lib/sandbox/provisioning.ts` and `app/api/sandbox/route.ts`.
+- UI: `app/settings/repositories/`, `repo-preferences-section.tsx`, `repo-preferences-editor.tsx`, `hooks/use-repo-preferences.ts`, and a sidebar entry.
+
+**Validation evidence**
+- `pnpm run ci` passed. New tests cover the schema (trim/blank → null, size limits, skill cap), model/skill/prompt resolution, the setup command runner (skip, cwd/timeout, failure tail, exec throw), repo parsing, the API routes (auth, user scoping, validation, delete 404), session creation with and without repo preferences, and repo instructions reaching the agent's call options.
+- Not yet exercised: the settings page in a browser, migration 0039 in a preview deployment, and a real sandbox running a setup command.
+
+### 10. Preview beside chat — implemented locally
+
+**Behavior**
+- Once the dev server is running, the header Globe button shows or hides a preview pane. The pane opens by itself when a start you asked for finishes, and closes when the server stops.
+- From the `lg` breakpoint up, the pane sits beside the chat, diff or file view: 45% wide, at least 360px, at most 70%. Below `lg` it covers the main area until you close it.
+- The toolbar shows the host, width presets (Fit, Mobile 390, Tablet 768, Desktop 1280), reload, open in new tab, and close. A preset wider than the pane is scaled down to fit, never up.
+- While loading there is a spinner. After 8 seconds the pane says the app may refuse to be framed and offers "Open in new tab", because a cross-origin frame gives no signal when it is blocked. "Open in new tab" is always in the toolbar and uses `noopener,noreferrer`.
+
+**Origin isolation**
+- The frame loads the sandbox's own URL (`sandbox.domain(port)`, for example `*.vercel.run`) and is never proxied through the app. `resolvePreviewFrameUrl` accepts only absolute https URLs without credentials whose origin differs from the app's. A same-origin URL is refused rather than framed, because `allow-scripts` + `allow-same-origin` on the app's own origin would let the page reach the app.
+- Sandbox flags match the existing codespace frame (`allow-scripts allow-same-origin allow-forms allow-popups allow-modals`), plus `referrerPolicy="no-referrer"`. The app sets no CSP `frame-src`, so nothing blocks the frame. A future CSP must allow the sandbox domains.
+
+**Changes**
+- `apps/web/lib/preview/preview-frame.ts` (+ `.test.ts`): viewport presets, URL rules, scale.
+- `apps/web/app/sessions/[sessionId]/chats/[chatId]/hooks/use-preview-pane.ts` and `preview-pane.tsx`.
+- `session-chat-content.tsx`: mounts the hook, points the Globe button at the pane, and wraps the main content in a row with the pane.
+
+**Validation evidence**
+- `pnpm run ci` passed. New tests cover URL acceptance and refusal (http, same origin, `javascript:`, relative, credentials), scaling and presets.
+- Not yet exercised: a real sandbox dev server in the pane, a dev server that sends `X-Frame-Options`, and the layout at each breakpoint.
+

@@ -38,6 +38,7 @@ import {
   getSessionSandboxName,
   isSandboxActive,
 } from "@/lib/sandbox/utils";
+import { runSessionRepoSetupCommand } from "@/lib/repo-preferences/session-setup-command";
 import { installGlobalSkills } from "@/lib/skills/global-skill-installer";
 import { eq } from "drizzle-orm";
 
@@ -279,6 +280,10 @@ export async function provisionSessionSandbox(params: {
     sandbox,
     didSetupWorkspace,
   });
+
+  if (didSetupWorkspace) {
+    await runSessionRepoSetupCommand({ session, sandbox });
+  }
 
   kickSandboxLifecycleWorkflow({
     sessionId: params.sessionId,

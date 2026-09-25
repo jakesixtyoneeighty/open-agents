@@ -41,7 +41,9 @@ import {
 } from "./chat-post-finish";
 import { dedupeMessageReasoning } from "@/lib/chat/dedupe-message-reasoning";
 import { getChatById, getSessionById } from "@/lib/db/sessions";
+import { getRepoPreferencesForSession } from "@/lib/db/repo-preferences";
 import { getUserPreferences } from "@/lib/db/user-preferences";
+import { buildRepoPreferencesPrompt } from "@/lib/repo-preferences/resolve";
 import { getAllVariants } from "@/lib/model-variants";
 import { APP_DEFAULT_MODEL_ID } from "@/lib/models";
 import type {
@@ -179,6 +181,15 @@ async function resolveChatModelRuntime(params: {
     throw new Error("Chat not found");
   }
 
+  // Read per turn so edits apply to sessions that are already running.
+  const repoPreferences = await getRepoPreferencesForSession(
+    sessionRecord,
+  ).catch((error) => {
+    console.error("Failed to load repository preferences:", error);
+    return null;
+  });
+  const repoPreferencesPrompt = buildRepoPreferencesPrompt(repoPreferences);
+
   const modelVariants = getAllVariants(preferences?.modelVariants ?? []);
   const selectedModelId = chat.modelId ?? null;
   const mainModelSelection = resolveChatModelSelection({
@@ -210,7 +221,9 @@ async function resolveChatModelRuntime(params: {
       ...(subagentModelSelection
         ? { subagentModel: subagentModelSelection }
         : {}),
-      customInstructions: assistantFileLinkPrompt,
+      customInstructions: [assistantFileLinkPrompt, repoPreferencesPrompt]
+        .filter(Boolean)
+        .join("\n\n"),
       ...(sessionRecord.repoOwner && sessionRecord.repoName
         ? {
             github: {

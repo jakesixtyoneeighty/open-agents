@@ -3,6 +3,7 @@
 import {
   ArrowLeft,
   Cable,
+  FolderGit2,
   LogOut,
   Menu,
   Settings as SettingsIcon,
@@ -88,6 +89,12 @@ const baseSidebarItems = [
     label: "Models",
     href: "/settings/models",
     icon: SlidersHorizontal,
+  },
+  {
+    id: "repositories",
+    label: "Repositories",
+    href: "/settings/repositories",
+    icon: FolderGit2,
   },
   {
     id: "leaderboard",

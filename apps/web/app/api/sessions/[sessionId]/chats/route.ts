@@ -8,7 +8,9 @@ import {
   getChatById,
   getChatSummariesBySessionId,
 } from "@/lib/db/sessions";
+import { getRepoPreferencesForSession } from "@/lib/db/repo-preferences";
 import { getUserPreferences } from "@/lib/db/user-preferences";
+import { resolveRepoModelId } from "@/lib/repo-preferences/resolve";
 
 type RouteContext = {
   params: Promise<{ sessionId: string }>;
@@ -30,11 +32,18 @@ export async function GET(_req: Request, context: RouteContext) {
     return sessionContext.response;
   }
 
-  const [chats, preferences] = await Promise.all([
+  const [chats, preferences, repoPreferences] = await Promise.all([
     getChatSummariesBySessionId(sessionId, authResult.userId),
     getUserPreferences(authResult.userId),
+    getRepoPreferencesForSession(sessionContext.sessionRecord),
   ]);
-  return Response.json({ chats, defaultModelId: preferences.defaultModelId });
+  return Response.json({
+    chats,
+    defaultModelId: resolveRepoModelId(
+      repoPreferences,
+      preferences.defaultModelId,
+    ),
+  });
 }
 
 export async function POST(req: Request, context: RouteContext) {
@@ -81,12 +90,15 @@ export async function POST(req: Request, context: RouteContext) {
     }
   }
 
-  const preferences = await getUserPreferences(authResult.userId);
+  const [preferences, repoPreferences] = await Promise.all([
+    getUserPreferences(authResult.userId),
+    getRepoPreferencesForSession(sessionContext.sessionRecord),
+  ]);
   const chat = await createChat({
     id: requestedChatId ?? nanoid(),
     sessionId,
     title: "New chat",
-    modelId: preferences.defaultModelId,
+    modelId: resolveRepoModelId(repoPreferences, preferences.defaultModelId),
   });
 
   return Response.json({ chat });

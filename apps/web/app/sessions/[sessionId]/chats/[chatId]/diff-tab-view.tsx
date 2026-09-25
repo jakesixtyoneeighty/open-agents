@@ -3,6 +3,8 @@
 import { PatchDiff } from "@pierre/diffs/react";
 import {
   AlignJustify,
+  ArrowDownToLine,
+  Check,
   ChevronRight,
   Columns2,
   Download,
@@ -29,12 +31,16 @@ import {
   useUserPreferences,
 } from "@/hooks/use-user-preferences";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { findNextUnreviewedPath } from "@/lib/diff-review-storage";
 import { defaultDiffOptions, splitDiffOptions } from "@/lib/diffs-config";
 import { cn } from "@/lib/utils";
 import { DownloadDiffDialog } from "./download-diff-dialog";
+import { useDiffReview } from "./hooks/use-diff-review";
 import { useSessionChatWorkspaceContext } from "./session-chat-context";
 
 type DiffStyle = DiffMode;
+
+const EMPTY_FILES: DiffFile[] = [];
 
 const wrappedDiffExtensions = new Set([".md", ".mdx", ".markdown", ".txt"]);
 
@@ -121,6 +127,8 @@ function FileDiffSection({
   file,
   isExpanded,
   onToggle,
+  isReviewed,
+  onReviewedChange,
   diffStyle,
   diffScope,
   sectionRef,
@@ -128,6 +136,8 @@ function FileDiffSection({
   file: DiffFile;
   isExpanded: boolean;
   onToggle: () => void;
+  isReviewed: boolean;
+  onReviewedChange: (reviewed: boolean) => void;
   diffStyle: DiffStyle;
   diffScope: string;
   sectionRef?: React.Ref<HTMLDivElement>;
@@ -146,44 +156,81 @@ function FileDiffSection({
     isLocalScope && file.localDiff ? file.localDiff : file.diff;
 
   return (
-    <div ref={sectionRef} className="border-b border-border last:border-b-0">
+    <div
+      ref={sectionRef}
+      className="scroll-mt-px border-b border-border last:border-b-0"
+    >
       {/* Collapsible header */}
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center gap-2 px-4 py-2 text-left transition-colors hover:bg-accent/50"
-      >
-        <ChevronRight
+      <div className="flex items-center transition-colors hover:bg-accent/50">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={isExpanded}
           className={cn(
-            "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-150",
-            isExpanded && "rotate-90",
+            "flex min-w-0 flex-1 items-center gap-2 py-2 pl-4 pr-2 text-left",
+            isReviewed && "opacity-60",
           )}
-        />
-        <FileStatusIcon status={file.status} />
-        <span className="shrink-0 text-xs font-medium text-foreground font-mono">
-          {fileName}
-        </span>
-        {dirPath && (
-          <span
-            className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[10px] text-muted-foreground"
-            dir="rtl"
-          >
-            <bdi>{dirPath.replace(/\/$/, "")}</bdi>
+        >
+          <ChevronRight
+            className={cn(
+              "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-150",
+              isExpanded && "rotate-90",
+            )}
+          />
+          <FileStatusIcon status={file.status} />
+          <span className="shrink-0 text-xs font-medium text-foreground font-mono">
+            {fileName}
           </span>
-        )}
-        <div className="ml-auto flex shrink-0 items-center gap-1.5 text-xs">
-          {file.additions > 0 && (
-            <span className="text-green-600 dark:text-green-500">
-              +{file.additions}
+          {dirPath && (
+            <span
+              className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[10px] text-muted-foreground"
+              dir="rtl"
+            >
+              <bdi>{dirPath.replace(/\/$/, "")}</bdi>
             </span>
           )}
-          {file.deletions > 0 && (
-            <span className="text-red-600 dark:text-red-400">
-              -{file.deletions}
-            </span>
+          <div className="ml-auto flex shrink-0 items-center gap-1.5 text-xs">
+            {file.additions > 0 && (
+              <span className="text-green-600 dark:text-green-500">
+                +{file.additions}
+              </span>
+            )}
+            {file.deletions > 0 && (
+              <span className="text-red-600 dark:text-red-400">
+                -{file.deletions}
+              </span>
+            )}
+          </div>
+        </button>
+        <button
+          type="button"
+          onClick={() => onReviewedChange(!isReviewed)}
+          aria-pressed={isReviewed}
+          aria-label={
+            isReviewed
+              ? `Mark ${file.path} as not viewed`
+              : `Mark ${file.path} as viewed`
+          }
+          className={cn(
+            "mr-2 flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] transition-colors",
+            isReviewed
+              ? "border-transparent bg-secondary text-secondary-foreground"
+              : "border-border text-muted-foreground hover:text-foreground",
           )}
-        </div>
-      </button>
+        >
+          <span
+            className={cn(
+              "flex h-3 w-3 items-center justify-center rounded-[3px] border",
+              isReviewed
+                ? "border-foreground/60 bg-foreground/80 text-background"
+                : "border-muted-foreground/60",
+            )}
+          >
+            {isReviewed ? <Check className="h-2.5 w-2.5" /> : null}
+          </span>
+          Viewed
+        </button>
+      </div>
 
       {/* Diff content */}
       {isExpanded && (
@@ -251,17 +298,30 @@ export function DiffTabView() {
   // Refs for scrolling to specific file sections
   const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
+  // The file the reviewer last worked on; "Next unreviewed" moves on from it.
+  const [currentFile, setCurrentFile] = useState<string | null>(null);
+
+  const allFiles = diff?.files ?? EMPTY_FILES;
+  const { reviewedPaths, setReviewed } = useDiffReview(
+    params.sessionId,
+    allFiles,
+  );
+
   // Filter files based on scope
   const visibleFiles = useMemo(() => {
-    if (!diff) return [];
-    if (diffScope === "branch") return diff.files;
-    return diff.files.filter(isUncommittedFile);
-  }, [diff, diffScope]);
+    if (diffScope === "branch") return allFiles;
+    return allFiles.filter(isUncommittedFile);
+  }, [allFiles, diffScope]);
+
+  const visibleReviewedCount = visibleFiles.filter((file) =>
+    reviewedPaths.has(file.path),
+  ).length;
 
   // When a file is requested from the sidebar, expand it and scroll to it.
   useEffect(() => {
     if (!focusedDiffFile) return;
 
+    setCurrentFile(focusedDiffFile);
     setExpandedFiles((prev) => {
       if (prev.has(focusedDiffFile)) return prev;
       return new Set([...prev, focusedDiffFile]);
@@ -286,6 +346,7 @@ export function DiffTabView() {
   }, [isMobile, preferences?.defaultDiffMode]);
 
   const toggleFile = useCallback((filePath: string) => {
+    setCurrentFile(filePath);
     setExpandedFiles((prev) => {
       const next = new Set(prev);
       if (next.has(filePath)) {
@@ -296,6 +357,46 @@ export function DiffTabView() {
       return next;
     });
   }, []);
+
+  const scrollToFile = useCallback((filePath: string) => {
+    requestAnimationFrame(() => {
+      sectionRefs.current
+        .get(filePath)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, []);
+
+  const goToNextUnreviewed = useCallback(() => {
+    const nextPath = findNextUnreviewedPath(
+      visibleFiles.map((file) => file.path),
+      reviewedPaths,
+      currentFile,
+    );
+    if (!nextPath) return;
+    setCurrentFile(nextPath);
+    setExpandedFiles((prev) =>
+      prev.has(nextPath) ? prev : new Set([...prev, nextPath]),
+    );
+    scrollToFile(nextPath);
+  }, [visibleFiles, reviewedPaths, currentFile, scrollToFile]);
+
+  const changeReviewed = useCallback(
+    (file: DiffFile, reviewed: boolean) => {
+      setReviewed(file, reviewed);
+      setCurrentFile(file.path);
+      // Marking a file viewed folds it away, keeping its header in view.
+      if (reviewed) {
+        setExpandedFiles((prev) => {
+          if (!prev.has(file.path)) return prev;
+          const next = new Set(prev);
+          next.delete(file.path);
+          return next;
+        });
+        scrollToFile(file.path);
+      }
+    },
+    [setReviewed, scrollToFile],
+  );
 
   const setSectionRef = useCallback(
     (filePath: string, el: HTMLDivElement | null) => {
@@ -399,8 +500,34 @@ export function DiffTabView() {
               </span>
             )}
           </div>
+          {visibleFiles.length > 0 ? (
+            <span
+              className="shrink-0 text-xs text-muted-foreground"
+              aria-live="polite"
+            >
+              {visibleReviewedCount}/{visibleFiles.length} viewed
+            </span>
+          ) : null}
         </div>
         <div className="flex items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={goToNextUnreviewed}
+                disabled={
+                  visibleFiles.length === 0 ||
+                  visibleReviewedCount === visibleFiles.length
+                }
+                className="h-7 w-7 px-0"
+                aria-label="Next unreviewed file"
+              >
+                <ArrowDownToLine className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Next unreviewed file</TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -553,6 +680,8 @@ export function DiffTabView() {
               file={file}
               isExpanded={expandedFiles.has(file.path)}
               onToggle={() => toggleFile(file.path)}
+              isReviewed={reviewedPaths.has(file.path)}
+              onReviewedChange={(reviewed) => changeReviewed(file, reviewed)}
               diffStyle={diffStyle}
               diffScope={diffScope}
               sectionRef={(el) => setSectionRef(file.path, el)}

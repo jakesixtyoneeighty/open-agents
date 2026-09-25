@@ -10,7 +10,12 @@ import {
   getVercelProjectLinkByRepo,
   upsertVercelProjectLink,
 } from "@/lib/db/vercel-project-links";
+import { getRepoPreferences } from "@/lib/db/repo-preferences";
 import { getUserPreferences } from "@/lib/db/user-preferences";
+import {
+  mergeRepoSkillRefs,
+  resolveRepoModelId,
+} from "@/lib/repo-preferences/resolve";
 import {
   isValidGitHubRepoName,
   isValidGitHubRepoOwner,
@@ -288,6 +293,10 @@ export async function POST(req: Request) {
   try {
     const titlePromise = resolveSessionTitle(body, session.user.id);
     const preferencesPromise = getUserPreferences(session.user.id);
+    const repoPreferencesPromise =
+      repoOwner && repoName
+        ? getRepoPreferences(session.user.id, repoOwner, repoName)
+        : Promise.resolve(null);
 
     let resolvedVercelProject: VercelProjectSelection | null = null;
     const hasRepo = Boolean(repoOwner && repoName);
@@ -336,9 +345,10 @@ export async function POST(req: Request) {
       }
     }
 
-    const [title, preferences] = await Promise.all([
+    const [title, preferences, repoPreferences] = await Promise.all([
       titlePromise,
       preferencesPromise,
+      repoPreferencesPromise,
     ]);
     const effectiveAutoCommitPush =
       autoCommitPush ?? preferences.autoCommitPush;
@@ -362,7 +372,10 @@ export async function POST(req: Request) {
         autoCreatePrOverride: effectiveAutoCommitPush
           ? effectiveAutoCreatePr
           : false,
-        globalSkillRefs: preferences.globalSkillRefs,
+        globalSkillRefs: mergeRepoSkillRefs(
+          preferences.globalSkillRefs,
+          repoPreferences,
+        ),
         sandboxState: { type: sandboxType },
         lifecycleState: "provisioning",
         lifecycleVersion: 0,
@@ -370,7 +383,10 @@ export async function POST(req: Request) {
       initialChat: {
         id: nanoid(),
         title: "New chat",
-        modelId: preferences.defaultModelId,
+        modelId: resolveRepoModelId(
+          repoPreferences,
+          preferences.defaultModelId,
+        ),
       },
     });
 

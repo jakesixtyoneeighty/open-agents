@@ -22,6 +22,7 @@ Hard-won knowledge from building this codebase. When you make a mistake or disco
 - Successful Vercel CLI auth (`vercel whoami`, team/project REST APIs, `.vercel` linking) does **not** guarantee Workflow observability access. `workflow inspect ... --backend vercel` can still fail with `401 {"error":{"code":"unauthorized","message":"You are not allowed to access this endpoint."}}` when the user/token lacks the Vercel product permission documented as `Vercel Workflow` (and possibly related Observability access), even if `WORKFLOW_VERCEL_AUTH_TOKEN` is passed explicitly from the Vercel CLI auth file.
 - Agent call options reach tools via `experimental_context`, but workflow `"use step"` arguments are serialized. Attach anything holding live clients or functions (for example the `ScreenshotStore`) inside the step, not in the options passed between steps.
 - If an AI SDK `tool()` with an async-generator `execute` fails with a vague "No overload matches this call", annotate the generator return type (e.g. `AsyncGenerator<TaskToolOutput>`); inference of the yield union is the usual culprit.
+- When a route or workflow step gains a new `@/lib/db/*` import, add a `mock.module` for it in that file's existing tests. Otherwise the call reaches the real `db` proxy, throws `POSTGRES_URL environment variable is required`, and tests that wrap the lookup in a `.catch` pass silently on the fallback path.
 
 ## Next.js
 

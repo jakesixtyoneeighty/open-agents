@@ -142,6 +142,8 @@ import { useStreamRecovery } from "./hooks/use-stream-recovery";
 import { useAutoCommitStatus } from "./hooks/use-auto-commit-status";
 import { useCodeEditor } from "./hooks/use-code-editor";
 import { useDevServer } from "./hooks/use-dev-server";
+import { usePreviewPane } from "./hooks/use-preview-pane";
+import { PreviewPane } from "./preview-pane";
 import { useGitPanel } from "./git-panel-context";
 import {
   createSandbox,
@@ -2793,6 +2795,7 @@ export function SessionChatContent({
     canRun: canRunDevServer,
     ensureSandboxReady: ensureSandboxReadyForAction,
   });
+  const preview = usePreviewPane(devServer.state);
   const codeEditor = useCodeEditor({
     sessionId: session.id,
     canRun: canRunDevServer,
@@ -3120,14 +3123,23 @@ export function SessionChatContent({
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-5 w-5 rounded-sm"
-                            onClick={() => void devServer.handlePrimaryAction()}
+                            className={cn(
+                              "h-5 w-5 rounded-sm",
+                              preview.isOpen && "bg-secondary",
+                            )}
+                            onClick={preview.handleToggle}
+                            aria-pressed={preview.isOpen}
+                            aria-label={
+                              preview.isOpen ? "Hide preview" : "Show preview"
+                            }
                           >
                             <Globe className="h-3 w-3" />
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent side="bottom">
-                          Open dev server
+                          {preview.isOpen
+                            ? "Hide preview"
+                            : "Show preview beside chat"}
                         </TooltipContent>
                       </Tooltip>
                       <Tooltip>
@@ -3275,208 +3287,402 @@ export function SessionChatContent({
           </DialogContent>
         </Dialog>
 
-        {/* Main content: chat, diff, or file */}
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          {activeView === "diff" ? (
-            <DiffTabView />
-          ) : activeView === "file" ? (
-            <FileTabView />
-          ) : (
-            <>
-              {/* Transient error banner (e.g. iOS "Load failed" after sleep) */}
-              {error && (
-                <div className="flex items-center justify-between gap-3 border-b border-destructive/20 bg-destructive/10 px-4 py-2 text-sm text-destructive">
-                  <p className="min-w-0 truncate">{error.message}</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0 gap-1.5 border-destructive/30 text-destructive hover:bg-destructive/10"
-                    onClick={() => retryChatStream()}
-                  >
-                    <RefreshCw className="h-3 w-3" />
-                    Retry
-                  </Button>
-                </div>
-              )}
-
-              {/* Messages */}
-              <div className="relative flex-1 overflow-hidden">
-                <div ref={containerRef} className="h-full overflow-y-auto">
-                  <div className="mx-auto max-w-4xl overflow-hidden px-4 py-8">
-                    <ScreenshotSourceProvider
-                      source={{ sessionId: session.id }}
+        {/* Main content: chat, diff, or file, with the preview beside it */}
+        <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+            {activeView === "diff" ? (
+              <DiffTabView />
+            ) : activeView === "file" ? (
+              <FileTabView />
+            ) : (
+              <>
+                {/* Transient error banner (e.g. iOS "Load failed" after sleep) */}
+                {error && (
+                  <div className="flex items-center justify-between gap-3 border-b border-destructive/20 bg-destructive/10 px-4 py-2 text-sm text-destructive">
+                    <p className="min-w-0 truncate">{error.message}</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0 gap-1.5 border-destructive/30 text-destructive hover:bg-destructive/10"
+                      onClick={() => retryChatStream()}
                     >
-                      <OpenFileProvider
-                        onOpenFile={(fp) => setSelectedWorkspaceFile(fp)}
+                      <RefreshCw className="h-3 w-3" />
+                      Retry
+                    </Button>
+                  </div>
+                )}
+
+                {/* Messages */}
+                <div className="relative flex-1 overflow-hidden">
+                  <div ref={containerRef} className="h-full overflow-y-auto">
+                    <div className="mx-auto max-w-4xl overflow-hidden px-4 py-8">
+                      <ScreenshotSourceProvider
+                        source={{ sessionId: session.id }}
                       >
-                        <div className="space-y-6">
-                          {groupedRenderMessages.length === 0 &&
-                            !hasPendingResponse && (
-                              <MojoEmptyChat
-                                repoLabel={
-                                  session.repoOwner && session.repoName
-                                    ? `${session.repoOwner}/${session.repoName}`
-                                    : null
-                                }
-                                onPickSuggestion={(prompt) => {
-                                  setInput(prompt);
-                                  requestAnimationFrame(() => {
-                                    inputRef.current?.focus();
-                                  });
-                                }}
-                              />
-                            )}
-                          {groupedRenderMessages.map(
-                            ({
-                              message: m,
-                              groups,
-                              isStreaming: isMessageStreaming,
-                            }) => {
-                              const renderGroups = (
-                                isToolCallsExpanded: boolean,
-                              ) =>
-                                groups.map((group) => {
-                                  if (group.type === "reasoning-group") {
-                                    if (!isToolCallsExpanded) return null;
-                                    const hasRenderableContentAfterGroup =
-                                      m.parts
-                                        .slice(
-                                          group.startIndex + group.parts.length,
-                                        )
-                                        .some(hasRenderableAssistantPart);
-
-                                    return (
-                                      <div
-                                        key={`${m.id}-${group.renderKey}`}
-                                        className="max-w-full pl-[22px]"
-                                      >
-                                        <ThinkingBlock
-                                          text={getReasoningGroupText(
-                                            group.parts,
-                                          )}
-                                          isStreaming={shouldKeepCollapsedReasoningStreaming(
-                                            {
-                                              isMessageStreaming,
-                                              hasStreamingReasoningPart:
-                                                group.parts.some(
-                                                  (part) =>
-                                                    part.state === "streaming",
-                                                ),
-                                              hasRenderableContentAfterGroup,
-                                            },
-                                          )}
-                                          partCount={group.parts.length}
-                                        />
-                                      </div>
-                                    );
+                        <OpenFileProvider
+                          onOpenFile={(fp) => setSelectedWorkspaceFile(fp)}
+                        >
+                          <div className="space-y-6">
+                            {groupedRenderMessages.length === 0 &&
+                              !hasPendingResponse && (
+                                <MojoEmptyChat
+                                  repoLabel={
+                                    session.repoOwner && session.repoName
+                                      ? `${session.repoOwner}/${session.repoName}`
+                                      : null
                                   }
+                                  onPickSuggestion={(prompt) => {
+                                    setInput(prompt);
+                                    requestAnimationFrame(() => {
+                                      inputRef.current?.focus();
+                                    });
+                                  }}
+                                />
+                              )}
+                            {groupedRenderMessages.map(
+                              ({
+                                message: m,
+                                groups,
+                                isStreaming: isMessageStreaming,
+                              }) => {
+                                const renderGroups = (
+                                  isToolCallsExpanded: boolean,
+                                ) =>
+                                  groups.map((group) => {
+                                    if (group.type === "reasoning-group") {
+                                      if (!isToolCallsExpanded) return null;
+                                      const hasRenderableContentAfterGroup =
+                                        m.parts
+                                          .slice(
+                                            group.startIndex +
+                                              group.parts.length,
+                                          )
+                                          .some(hasRenderableAssistantPart);
 
-                                  const p = group.part;
-
-                                  if (isReasoningUIPart(p)) {
-                                    if (!isToolCallsExpanded) return null;
-                                    const hasRenderableContentAfterGroup =
-                                      m.parts
-                                        .slice(group.index + 1)
-                                        .some(hasRenderableAssistantPart);
-
-                                    return (
-                                      <div
-                                        key={`${m.id}-${group.renderKey}`}
-                                        className="max-w-full pl-[22px]"
-                                      >
-                                        <ThinkingBlock
-                                          text={p.text}
-                                          isStreaming={shouldKeepCollapsedReasoningStreaming(
-                                            {
-                                              isMessageStreaming,
-                                              hasStreamingReasoningPart:
-                                                p.state === "streaming",
-                                              hasRenderableContentAfterGroup,
-                                            },
-                                          )}
-                                        />
-                                      </div>
-                                    );
-                                  }
-
-                                  if (p.type === "text") {
-                                    if (p.text.length === 0) {
-                                      return null;
+                                      return (
+                                        <div
+                                          key={`${m.id}-${group.renderKey}`}
+                                          className="max-w-full pl-[22px]"
+                                        >
+                                          <ThinkingBlock
+                                            text={getReasoningGroupText(
+                                              group.parts,
+                                            )}
+                                            isStreaming={shouldKeepCollapsedReasoningStreaming(
+                                              {
+                                                isMessageStreaming,
+                                                hasStreamingReasoningPart:
+                                                  group.parts.some(
+                                                    (part) =>
+                                                      part.state ===
+                                                      "streaming",
+                                                  ),
+                                                hasRenderableContentAfterGroup,
+                                              },
+                                            )}
+                                            partCount={group.parts.length}
+                                          />
+                                        </div>
+                                      );
                                     }
 
-                                    const isFinalAssistantTextPart =
-                                      m.role === "assistant" &&
-                                      !m.parts
-                                        .slice(group.index + 1)
-                                        .some(
-                                          (messagePart) =>
-                                            messagePart.type === "text",
-                                        );
+                                    const p = group.part;
 
-                                    // When collapsed, hide every text part except the
-                                    // final one.  The final text part streams in live so
-                                    // the user always sees the latest assistant prose.
-                                    if (
-                                      !isToolCallsExpanded &&
-                                      m.role === "assistant" &&
-                                      !isFinalAssistantTextPart
-                                    ) {
-                                      return null;
+                                    if (isReasoningUIPart(p)) {
+                                      if (!isToolCallsExpanded) return null;
+                                      const hasRenderableContentAfterGroup =
+                                        m.parts
+                                          .slice(group.index + 1)
+                                          .some(hasRenderableAssistantPart);
+
+                                      return (
+                                        <div
+                                          key={`${m.id}-${group.renderKey}`}
+                                          className="max-w-full pl-[22px]"
+                                        >
+                                          <ThinkingBlock
+                                            text={p.text}
+                                            isStreaming={shouldKeepCollapsedReasoningStreaming(
+                                              {
+                                                isMessageStreaming,
+                                                hasStreamingReasoningPart:
+                                                  p.state === "streaming",
+                                                hasRenderableContentAfterGroup,
+                                              },
+                                            )}
+                                          />
+                                        </div>
+                                      );
                                     }
 
-                                    const canCopyAssistantMessage =
-                                      isFinalAssistantTextPart &&
-                                      !isMessageStreaming &&
-                                      p.text.trim().length > 0;
+                                    if (p.type === "text") {
+                                      if (p.text.length === 0) {
+                                        return null;
+                                      }
 
-                                    return (
-                                      <div
-                                        key={`${m.id}-${group.renderKey}`}
-                                        className={cn(
-                                          "flex min-w-0 py-2",
-                                          m.role === "user"
-                                            ? "justify-end"
-                                            : "justify-start",
-                                          // Breathing room above final assistant text after tool calls
-                                          isFinalAssistantTextPart &&
-                                            group.index > 0 &&
-                                            "mt-4",
-                                          // Indent non-final text parts (they're collapsible content)
-                                          m.role === "assistant" &&
-                                            !isFinalAssistantTextPart &&
-                                            "pl-[22px]",
-                                        )}
-                                      >
-                                        {m.role === "user" ? (
-                                          <div className="group relative w-fit min-w-0 max-w-[80%]">
-                                            <div className="rounded-3xl rounded-br-lg bg-secondary bg-gradient-mojo-soft px-4 py-2 ring-1 ring-border">
-                                              <p className="whitespace-pre-wrap break-words">
-                                                {p.text}
-                                              </p>
+                                      const isFinalAssistantTextPart =
+                                        m.role === "assistant" &&
+                                        !m.parts
+                                          .slice(group.index + 1)
+                                          .some(
+                                            (messagePart) =>
+                                              messagePart.type === "text",
+                                          );
+
+                                      // When collapsed, hide every text part except the
+                                      // final one.  The final text part streams in live so
+                                      // the user always sees the latest assistant prose.
+                                      if (
+                                        !isToolCallsExpanded &&
+                                        m.role === "assistant" &&
+                                        !isFinalAssistantTextPart
+                                      ) {
+                                        return null;
+                                      }
+
+                                      const canCopyAssistantMessage =
+                                        isFinalAssistantTextPart &&
+                                        !isMessageStreaming &&
+                                        p.text.trim().length > 0;
+
+                                      return (
+                                        <div
+                                          key={`${m.id}-${group.renderKey}`}
+                                          className={cn(
+                                            "flex min-w-0 py-2",
+                                            m.role === "user"
+                                              ? "justify-end"
+                                              : "justify-start",
+                                            // Breathing room above final assistant text after tool calls
+                                            isFinalAssistantTextPart &&
+                                              group.index > 0 &&
+                                              "mt-4",
+                                            // Indent non-final text parts (they're collapsible content)
+                                            m.role === "assistant" &&
+                                              !isFinalAssistantTextPart &&
+                                              "pl-[22px]",
+                                          )}
+                                        >
+                                          {m.role === "user" ? (
+                                            <div className="group relative w-fit min-w-0 max-w-[80%]">
+                                              <div className="rounded-3xl rounded-br-lg bg-secondary bg-gradient-mojo-soft px-4 py-2 ring-1 ring-border">
+                                                <p className="whitespace-pre-wrap break-words">
+                                                  {p.text}
+                                                </p>
+                                              </div>
+                                              {group.index === 0 && (
+                                                <div className="absolute -left-20 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-md bg-background/80 p-1 text-muted-foreground opacity-0 transition group-hover:opacity-100">
+                                                  <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                      void handleResendUserMessage(
+                                                        m.id,
+                                                      )
+                                                    }
+                                                    disabled={
+                                                      hasMessageActionInFlight
+                                                    }
+                                                    aria-label="Resend this message and delete everything after it"
+                                                    className="rounded p-1 transition hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                                                  >
+                                                    {resendingMessageId ===
+                                                    m.id ? (
+                                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                      <RotateCcw className="h-4 w-4" />
+                                                    )}
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                      void handleDeleteUserMessage(
+                                                        m.id,
+                                                      )
+                                                    }
+                                                    disabled={
+                                                      hasMessageActionInFlight
+                                                    }
+                                                    aria-label="Delete this message and everything after it"
+                                                    className="rounded p-1 transition hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40"
+                                                  >
+                                                    {deletingMessageId ===
+                                                    m.id ? (
+                                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                      <Trash2 className="h-4 w-4" />
+                                                    )}
+                                                  </button>
+                                                </div>
+                                              )}
                                             </div>
-                                            {group.index === 0 && (
-                                              <div className="absolute -left-20 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-md bg-background/80 p-1 text-muted-foreground opacity-0 transition group-hover:opacity-100">
-                                                <button
-                                                  type="button"
-                                                  onClick={() =>
-                                                    void handleResendUserMessage(
-                                                      m.id,
-                                                    )
-                                                  }
-                                                  disabled={
-                                                    hasMessageActionInFlight
-                                                  }
-                                                  aria-label="Resend this message and delete everything after it"
-                                                  className="rounded p-1 transition hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-                                                >
-                                                  {resendingMessageId ===
-                                                  m.id ? (
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                                  ) : (
-                                                    <RotateCcw className="h-4 w-4" />
+                                          ) : (
+                                            <div className="group min-w-0 w-full overflow-hidden">
+                                              <Streamdown
+                                                animated={
+                                                  isMessageStreaming
+                                                    ? {
+                                                        animation: "fadeIn",
+                                                        duration: 250,
+                                                        easing: "ease-out",
+                                                      }
+                                                    : undefined
+                                                }
+                                                mode={
+                                                  isMessageStreaming
+                                                    ? "streaming"
+                                                    : "static"
+                                                }
+                                                isAnimating={isMessageStreaming}
+                                                components={
+                                                  streamdownComponents
+                                                }
+                                                plugins={streamdownPlugins}
+                                              >
+                                                {p.text}
+                                              </Streamdown>
+                                              {(canCopyAssistantMessage ||
+                                                (!isMessageStreaming &&
+                                                  isFinalAssistantTextPart &&
+                                                  m.metadata)) && (
+                                                <div className="mt-1 flex items-center justify-start">
+                                                  {canCopyAssistantMessage && (
+                                                    <div className="flex items-center gap-1">
+                                                      <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                          void handleCopyAssistantMessage(
+                                                            m.id,
+                                                            p.text,
+                                                          )
+                                                        }
+                                                        aria-label="Copy assistant response"
+                                                        className="rounded p-1 text-muted-foreground opacity-0 transition hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
+                                                      >
+                                                        {copiedAssistantMessageId ===
+                                                        m.id ? (
+                                                          <Check className="h-4 w-4" />
+                                                        ) : (
+                                                          <Copy className="h-4 w-4" />
+                                                        )}
+                                                      </button>
+                                                      <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                          void handleForkAssistantMessage(
+                                                            m.id,
+                                                          )
+                                                        }
+                                                        disabled={
+                                                          forkingAssistantMessageId !==
+                                                          null
+                                                        }
+                                                        aria-label="Fork conversation from this response"
+                                                        className={cn(
+                                                          "rounded p-1 text-muted-foreground opacity-0 transition hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100 disabled:cursor-not-allowed disabled:opacity-40",
+                                                          forkingAssistantMessageId ===
+                                                            m.id &&
+                                                            "opacity-100",
+                                                        )}
+                                                      >
+                                                        {forkingAssistantMessageId ===
+                                                        m.id ? (
+                                                          <Loader2 className="h-4 w-4 animate-spin" />
+                                                        ) : (
+                                                          <GitBranch className="h-4 w-4" />
+                                                        )}
+                                                      </button>
+                                                    </div>
                                                   )}
-                                                </button>
+                                                  {!isMessageStreaming &&
+                                                    isFinalAssistantTextPart &&
+                                                    m.metadata && (
+                                                      <span className="opacity-0 transition group-hover:opacity-100">
+                                                        <MessageModelPill
+                                                          metadata={m.metadata}
+                                                          modelOptions={
+                                                            modelOptions
+                                                          }
+                                                        />
+                                                      </span>
+                                                    )}
+                                                </div>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    }
+
+                                    if (isToolUIPart(p)) {
+                                      if (!isToolCallsExpanded) return null;
+                                      return (
+                                        <div
+                                          key={`${m.id}-${group.renderKey}`}
+                                          className="max-w-full pl-[22px]"
+                                        >
+                                          <ToolCall
+                                            part={p as WebAgentUIToolPart}
+                                            isStreaming={isMessageStreaming}
+                                            onApprove={(id) =>
+                                              addToolApprovalResponse({
+                                                id,
+                                                approved: true,
+                                              })
+                                            }
+                                            onDeny={(id, reason) =>
+                                              addToolApprovalResponse({
+                                                id,
+                                                approved: false,
+                                                reason,
+                                              })
+                                            }
+                                          />
+                                        </div>
+                                      );
+                                    }
+
+                                    if (isGitDataPart(p)) {
+                                      if (!shouldRenderGitDataPart(p)) {
+                                        return null;
+                                      }
+
+                                      return (
+                                        <div
+                                          key={`${m.id}-${group.renderKey}`}
+                                          className="max-w-full"
+                                        >
+                                          <GitDataPartCard part={p} />
+                                        </div>
+                                      );
+                                    }
+
+                                    // Render image attachments
+                                    if (
+                                      p.type === "file" &&
+                                      p.mediaType?.startsWith("image/")
+                                    ) {
+                                      if (
+                                        !isToolCallsExpanded &&
+                                        m.role === "assistant"
+                                      ) {
+                                        return null;
+                                      }
+                                      return (
+                                        <div
+                                          key={`${m.id}-${group.renderKey}`}
+                                          className="flex justify-end"
+                                        >
+                                          <div className="group relative w-fit max-w-[80%]">
+                                            {/* eslint-disable-next-line @next/next/no-img-element -- Data URLs not supported by next/image */}
+                                            <img
+                                              src={p.url}
+                                              alt={
+                                                p.filename ?? "Attached image"
+                                              }
+                                              className="max-h-64 rounded-lg"
+                                            />
+                                            {m.role === "user" &&
+                                              group.index === 0 && (
                                                 <button
                                                   type="button"
                                                   onClick={() =>
@@ -3488,7 +3694,7 @@ export function SessionChatContent({
                                                     hasMessageActionInFlight
                                                   }
                                                   aria-label="Delete this message and everything after it"
-                                                  className="rounded p-1 transition hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40"
+                                                  className="absolute -left-10 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground opacity-0 transition hover:text-destructive group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
                                                 >
                                                   {deletingMessageId ===
                                                   m.id ? (
@@ -3497,906 +3703,729 @@ export function SessionChatContent({
                                                     <Trash2 className="h-4 w-4" />
                                                   )}
                                                 </button>
-                                              </div>
-                                            )}
+                                              )}
                                           </div>
-                                        ) : (
-                                          <div className="group min-w-0 w-full overflow-hidden">
-                                            <Streamdown
-                                              animated={
-                                                isMessageStreaming
-                                                  ? {
-                                                      animation: "fadeIn",
-                                                      duration: 250,
-                                                      easing: "ease-out",
-                                                    }
-                                                  : undefined
-                                              }
-                                              mode={
-                                                isMessageStreaming
-                                                  ? "streaming"
-                                                  : "static"
-                                              }
-                                              isAnimating={isMessageStreaming}
-                                              components={streamdownComponents}
-                                              plugins={streamdownPlugins}
-                                            >
-                                              {p.text}
-                                            </Streamdown>
-                                            {(canCopyAssistantMessage ||
-                                              (!isMessageStreaming &&
-                                                isFinalAssistantTextPart &&
-                                                m.metadata)) && (
-                                              <div className="mt-1 flex items-center justify-start">
-                                                {canCopyAssistantMessage && (
-                                                  <div className="flex items-center gap-1">
-                                                    <button
-                                                      type="button"
-                                                      onClick={() =>
-                                                        void handleCopyAssistantMessage(
-                                                          m.id,
-                                                          p.text,
-                                                        )
-                                                      }
-                                                      aria-label="Copy assistant response"
-                                                      className="rounded p-1 text-muted-foreground opacity-0 transition hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
-                                                    >
-                                                      {copiedAssistantMessageId ===
-                                                      m.id ? (
-                                                        <Check className="h-4 w-4" />
-                                                      ) : (
-                                                        <Copy className="h-4 w-4" />
-                                                      )}
-                                                    </button>
-                                                    <button
-                                                      type="button"
-                                                      onClick={() =>
-                                                        void handleForkAssistantMessage(
-                                                          m.id,
-                                                        )
-                                                      }
-                                                      disabled={
-                                                        forkingAssistantMessageId !==
-                                                        null
-                                                      }
-                                                      aria-label="Fork conversation from this response"
-                                                      className={cn(
-                                                        "rounded p-1 text-muted-foreground opacity-0 transition hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100 disabled:cursor-not-allowed disabled:opacity-40",
-                                                        forkingAssistantMessageId ===
-                                                          m.id && "opacity-100",
-                                                      )}
-                                                    >
-                                                      {forkingAssistantMessageId ===
-                                                      m.id ? (
-                                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                                      ) : (
-                                                        <GitBranch className="h-4 w-4" />
-                                                      )}
-                                                    </button>
-                                                  </div>
-                                                )}
-                                                {!isMessageStreaming &&
-                                                  isFinalAssistantTextPart &&
-                                                  m.metadata && (
-                                                    <span className="opacity-0 transition group-hover:opacity-100">
-                                                      <MessageModelPill
-                                                        metadata={m.metadata}
-                                                        modelOptions={
-                                                          modelOptions
-                                                        }
-                                                      />
-                                                    </span>
-                                                  )}
-                                              </div>
-                                            )}
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  }
+                                        </div>
+                                      );
+                                    }
 
-                                  if (isToolUIPart(p)) {
-                                    if (!isToolCallsExpanded) return null;
-                                    return (
-                                      <div
-                                        key={`${m.id}-${group.renderKey}`}
-                                        className="max-w-full pl-[22px]"
-                                      >
-                                        <ToolCall
-                                          part={p as WebAgentUIToolPart}
-                                          isStreaming={isMessageStreaming}
-                                          onApprove={(id) =>
-                                            addToolApprovalResponse({
-                                              id,
-                                              approved: true,
-                                            })
-                                          }
-                                          onDeny={(id, reason) =>
-                                            addToolApprovalResponse({
-                                              id,
-                                              approved: false,
-                                              reason,
-                                            })
-                                          }
+                                    if (p.type === "data-quality-review") {
+                                      return (
+                                        <QualityReviewSummary
+                                          key={`${m.id}-${group.renderKey}`}
+                                          submission={p.data}
                                         />
-                                      </div>
-                                    );
-                                  }
-
-                                  if (isGitDataPart(p)) {
-                                    if (!shouldRenderGitDataPart(p)) {
-                                      return null;
+                                      );
+                                    }
+                                    if (p.type === "data-task-brief") {
+                                      return (
+                                        <TaskBriefSummary
+                                          key={`${m.id}-${group.renderKey}`}
+                                          submission={p.data}
+                                        />
+                                      );
                                     }
 
-                                    return (
-                                      <div
-                                        key={`${m.id}-${group.renderKey}`}
-                                        className="max-w-full"
-                                      >
-                                        <GitDataPartCard part={p} />
-                                      </div>
-                                    );
-                                  }
-
-                                  // Render image attachments
-                                  if (
-                                    p.type === "file" &&
-                                    p.mediaType?.startsWith("image/")
-                                  ) {
-                                    if (
-                                      !isToolCallsExpanded &&
-                                      m.role === "assistant"
-                                    ) {
-                                      return null;
-                                    }
-                                    return (
-                                      <div
-                                        key={`${m.id}-${group.renderKey}`}
-                                        className="flex justify-end"
-                                      >
-                                        <div className="group relative w-fit max-w-[80%]">
-                                          {/* eslint-disable-next-line @next/next/no-img-element -- Data URLs not supported by next/image */}
-                                          <img
-                                            src={p.url}
-                                            alt={p.filename ?? "Attached image"}
-                                            className="max-h-64 rounded-lg"
-                                          />
-                                          {m.role === "user" &&
-                                            group.index === 0 && (
-                                              <button
-                                                type="button"
-                                                onClick={() =>
-                                                  void handleDeleteUserMessage(
-                                                    m.id,
-                                                  )
-                                                }
-                                                disabled={
-                                                  hasMessageActionInFlight
-                                                }
-                                                aria-label="Delete this message and everything after it"
-                                                className="absolute -left-10 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground opacity-0 transition hover:text-destructive group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
-                                              >
-                                                {deletingMessageId === m.id ? (
-                                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                                ) : (
-                                                  <Trash2 className="h-4 w-4" />
-                                                )}
-                                              </button>
-                                            )}
-                                        </div>
-                                      </div>
-                                    );
-                                  }
-
-                                  if (p.type === "data-quality-review") {
-                                    return (
-                                      <QualityReviewSummary
-                                        key={`${m.id}-${group.renderKey}`}
-                                        submission={p.data}
-                                      />
-                                    );
-                                  }
-                                  if (p.type === "data-task-brief") {
-                                    return (
-                                      <TaskBriefSummary
-                                        key={`${m.id}-${group.renderKey}`}
-                                        submission={p.data}
-                                      />
-                                    );
-                                  }
-
-                                  if (p.type === "data-snippet") {
-                                    if (
-                                      !isToolCallsExpanded &&
-                                      m.role === "assistant"
-                                    ) {
-                                      return null;
-                                    }
-                                    return (
-                                      <div
-                                        key={`${m.id}-${group.renderKey}`}
-                                        className={cn(
-                                          "flex",
-                                          m.role === "user"
-                                            ? "justify-end"
-                                            : "justify-start",
-                                        )}
-                                      >
-                                        <div className="group relative w-fit max-w-[80%]">
-                                          <SnippetChip
-                                            filename={p.data.filename}
-                                            content={p.data.content}
-                                          />
-                                          {m.role === "user" &&
-                                            group.index === 0 && (
-                                              <button
-                                                type="button"
-                                                onClick={() =>
-                                                  void handleDeleteUserMessage(
-                                                    m.id,
-                                                  )
-                                                }
-                                                disabled={
-                                                  hasMessageActionInFlight
-                                                }
-                                                aria-label="Delete this message and everything after it"
-                                                className="absolute -left-10 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground opacity-0 transition hover:text-destructive group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
-                                              >
-                                                {deletingMessageId === m.id ? (
-                                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                                ) : (
-                                                  <Trash2 className="h-4 w-4" />
-                                                )}
-                                              </button>
-                                            )}
-                                        </div>
-                                      </div>
-                                    );
-                                  }
-
-                                  return null;
-                                });
-
-                              if (m.role === "assistant") {
-                                return (
-                                  <AssistantMessageGroups
-                                    key={m.id}
-                                    message={m}
-                                    isStreaming={isMessageStreaming}
-                                    durationMs={
-                                      messageDurationMap[m.id] ?? null
-                                    }
-                                    startedAt={
-                                      messageStartedAtMap[m.id] ??
-                                      (isMessageStreaming
-                                        ? lastSendTimestampRef.current
-                                          ? new Date(
-                                              lastSendTimestampRef.current,
-                                            ).toISOString()
-                                          : lastUserMessageSentAt
-                                        : null)
-                                    }
-                                  >
-                                    {renderGroups}
-                                  </AssistantMessageGroups>
-                                );
-                              }
-
-                              return (
-                                <div key={m.id} className="flex flex-col gap-1">
-                                  {renderGroups(true)}
-                                </div>
-                              );
-                            },
-                          )}
-                          {showThinkingIndicator && (
-                            <div className="my-1.5 border border-transparent py-0.5">
-                              <MojoThinking
-                                message={workspaceStatus?.message}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      </OpenFileProvider>
-                    </ScreenshotSourceProvider>
-                  </div>
-                </div>
-                {!isAtBottom && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-secondary text-secondary-foreground hover:bg-accent"
-                    onClick={scrollToBottom}
-                  >
-                    <ArrowDown className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-
-              {/* Input */}
-              <div className="p-4 pb-2 sm:pb-8">
-                <div className="mx-auto max-w-4xl space-y-2">
-                  {sandboxCreateError && (
-                    <SandboxCreateErrorBanner
-                      error={sandboxCreateError}
-                      onDismiss={() => setSandboxCreateError(null)}
-                    />
-                  )}
-                  {restoreError && (
-                    <div className="flex items-center justify-between rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                      <span>{restoreError}</span>
-                      <button
-                        type="button"
-                        onClick={() => setRestoreError(null)}
-                        className="ml-2 rounded p-0.5 hover:bg-destructive/20"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  )}
-                  {deleteMessageError && (
-                    <div className="flex items-center justify-between rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                      <span>{deleteMessageError}</span>
-                      <button
-                        type="button"
-                        onClick={() => setDeleteMessageError(null)}
-                        className="ml-2 rounded p-0.5 hover:bg-destructive/20"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  )}
-                  {/* Hidden file input */}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept={ACCEPT_IMAGE_TYPES}
-                    multiple
-                    onChange={(e) => {
-                      const files = e.target.files;
-                      if (files && files.length > 0) {
-                        addImages(files);
-                      }
-                      e.target.value = "";
-                    }}
-                    className="hidden"
-                  />
-                  <div className="relative">
-                    {showSuggestions && (
-                      <FileSuggestionsDropdown
-                        suggestions={suggestions}
-                        selectedIndex={selectedIndex}
-                        onSelect={(suggestion) => {
-                          if (mentionInfo) {
-                            handleFileSelect(
-                              suggestion.value,
-                              mentionInfo.mentionStart,
-                              cursorPosition,
-                            );
-                          }
-                        }}
-                        isLoading={filesLoading}
-                      />
-                    )}
-                    {showSlashCommands && !showSuggestions && (
-                      <SlashCommandDropdown
-                        suggestions={slashSuggestions}
-                        selectedIndex={selectedSlashIndex}
-                        onSelect={(suggestion) => {
-                          if (slashInfo) {
-                            handleSlashCommandSelect(
-                              suggestion.name,
-                              slashInfo.slashStart,
-                              cursorPosition,
-                            );
-                          }
-                        }}
-                        isLoading={skillsLoading}
-                      />
-                    )}
-                    {/* Pinned Todo Panel — sits above the input box */}
-                    <TaskBriefControls
-                      key={chatInfo.id}
-                      messages={messages}
-                      buildBlocked={userStopped || !!error}
-                      disabled={
-                        isArchived ||
-                        isChatInFlight ||
-                        hasPendingResponse ||
-                        showInlineQuestion
-                      }
-                      onSend={sendMessageWithPendingState}
-                    />
-                    <QualityReviewControls
-                      key={`quality-${chatInfo.id}`}
-                      messages={messages}
-                      fixBlocked={userStopped || !!error}
-                      disabled={
-                        isArchived ||
-                        isChatInFlight ||
-                        hasPendingResponse ||
-                        showInlineQuestion
-                      }
-                      onSend={sendMessageWithPendingState}
-                    />
-                    <PinnedTodoPanel todos={latestTodos} />
-                    {/* Input form */}
-                    <div
-                      className={cn(
-                        "overflow-hidden rounded-2xl border border-border bg-card/90 shadow-sm backdrop-blur transition-[border-color,box-shadow] duration-300 focus-within:border-mojo-blue/40 focus-within:shadow-mojo",
-                        (isChatInFlight || hasPendingResponse) &&
-                          "mojo-border-spin",
-                        isDragging && "ring-2 ring-mojo-blue/50",
-                      )}
-                    >
-                      <form
-                        onSubmit={async (e) => {
-                          e.preventDefault();
-                          // When inline question is active, don't send a chat message
-                          if (showInlineQuestion) return;
-                          if (
-                            isArchived ||
-                            isChatInFlight ||
-                            hasPendingResponse
-                          ) {
-                            return;
-                          }
-                          const hasContent =
-                            input.trim() ||
-                            images.length > 0 ||
-                            textAttachments.length > 0;
-                          if (!hasContent) return;
-
-                          const messageText = input;
-                          const files = getFileParts();
-
-                          // Build the message payload. When text attachments are
-                          // present we use the parts-based form so we can include
-                          // data-snippet parts alongside text and file parts.
-                          const hasSnippets = textAttachments.length > 0;
-                          let messagePayload: Parameters<
-                            typeof sendMessageWithPendingState
-                          >[0];
-
-                          if (hasSnippets) {
-                            const parts: WebAgentUIMessage["parts"] = [];
-                            if (messageText.trim()) {
-                              parts.push({
-                                type: "text" as const,
-                                text: messageText,
-                              });
-                            }
-                            if (files) {
-                              for (const f of files) {
-                                parts.push(f);
-                              }
-                            }
-                            for (const attachment of textAttachments) {
-                              parts.push({
-                                type: "data-snippet" as const,
-                                id: attachment.id,
-                                data: {
-                                  content: attachment.content,
-                                  filename: attachment.filename,
-                                },
-                              });
-                            }
-                            messagePayload = { parts };
-                          } else {
-                            messagePayload = {
-                              text: messageText,
-                              files,
-                            };
-                          }
-
-                          chatDraft.holdForSubmission(messageText);
-                          setInput("");
-                          clearImages();
-                          clearTextAttachments();
-
-                          const isFirstChatInSession =
-                            initialIsOnlyChatInSession;
-                          const shouldSetOptimisticTitle =
-                            isFirstChatInSession &&
-                            !hadInitialMessages &&
-                            messages.length === 0;
-                          const trimmedText = messageText.trim();
-                          const shouldGenerateSessionTitle =
-                            shouldSetOptimisticTitle &&
-                            trimmedText.length > 0 &&
-                            !hasRequestedSessionTitleGenerationRef.current;
-                          if (
-                            shouldSetOptimisticTitle &&
-                            trimmedText.length > 0
-                          ) {
-                            const nextTitle =
-                              trimmedText.length > 80
-                                ? `${trimmedText.slice(0, 80)}...`
-                                : trimmedText;
-                            pendingOptimisticTitleChatIdRef.current =
-                              chatInfo.id;
-                            void setChatTitle(chatInfo.id, nextTitle);
-
-                            if (shouldGenerateSessionTitle) {
-                              hasRequestedSessionTitleGenerationRef.current = true;
-                              // Generate a title in parallel and persist it as soon as it
-                              // resolves, without waiting for the assistant response.
-                              const generatedTitlePromise = fetch(
-                                "/api/generate-title",
-                                {
-                                  method: "POST",
-                                  headers: {
-                                    "Content-Type": "application/json",
-                                  },
-                                  body: JSON.stringify({
-                                    message: trimmedText,
-                                  }),
-                                },
-                              )
-                                .then(async (res) => {
-                                  if (!res.ok) {
-                                    return null;
-                                  }
-
-                                  const data = (await res
-                                    .json()
-                                    .catch(() => null)) as {
-                                    title?: unknown;
-                                  } | null;
-                                  if (typeof data?.title !== "string") {
-                                    return null;
-                                  }
-
-                                  const title = data.title.trim();
-                                  return title.length > 0 ? title : null;
-                                })
-                                .catch(() => null);
-
-                              void generatedTitlePromise
-                                .then((generatedTitle) => {
-                                  if (!generatedTitle) {
-                                    return;
-                                  }
-                                  return updateSessionTitle(generatedTitle);
-                                })
-                                .catch(() => {
-                                  // Ignore failures and keep the existing session title.
-                                });
-                            }
-                          }
-                          try {
-                            await sendMessageWithPendingState(messagePayload);
-                          } catch (err) {
-                            if (pendingOptimisticTitleChatIdRef.current) {
-                              void clearChatTitle(
-                                pendingOptimisticTitleChatIdRef.current,
-                              );
-                              pendingOptimisticTitleChatIdRef.current = null;
-                            }
-                            chatDraft.restoreAfterFailure(messageText);
-                            console.error("Failed to send message:", err);
-                          }
-                        }}
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                          setIsDragging(true);
-                        }}
-                        onDragLeave={(e) => {
-                          e.preventDefault();
-                          // Only set isDragging to false if we're leaving the form entirely
-                          // (not just moving to a child element)
-                          if (
-                            !e.currentTarget.contains(e.relatedTarget as Node)
-                          ) {
-                            setIsDragging(false);
-                          }
-                        }}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          setIsDragging(false);
-                          const files = e.dataTransfer.files;
-                          if (files.length > 0) {
-                            addImages(files);
-                          }
-                        }}
-                      >
-                        {/* Sandbox overlay when inactive */}
-                        <SandboxInputOverlay
-                          isArchived={isArchived}
-                          snapshotPending={isArchiveSnapshotPending}
-                        />
-
-                        {/* Attachments preview */}
-                        {(images.length > 0 || textAttachments.length > 0) && (
-                          <div className="flex min-w-0 flex-wrap items-start gap-2 px-2 pb-1 pt-2">
-                            {images.length > 0 && (
-                              <ImageAttachmentsPreview
-                                images={images}
-                                onRemove={removeImage}
-                                className="p-0"
-                              />
-                            )}
-                            {textAttachments.length > 0 && (
-                              <TextAttachmentsPreview
-                                attachments={textAttachments}
-                                onRemove={removeTextAttachment}
-                                className="p-0"
-                              />
-                            )}
-                          </div>
-                        )}
-
-                        {/* Inline question UI for mobile — rendered inside prompt box */}
-                        {showInlineQuestion && inlineQuestion.questionHeaderUI}
-
-                        {/* Textarea area */}
-                        <div className="px-4 pb-2 pt-3">
-                          <textarea
-                            ref={inputRef}
-                            value={input}
-                            placeholder={
-                              showInlineQuestion
-                                ? inlineQuestion.placeholder
-                                : "Ask Mojo to fix, build, or explain something…"
-                            }
-                            rows={1}
-                            onFocus={handleTextareaFocus}
-                            onChange={(e) => {
-                              setInput(e.currentTarget.value);
-                              setCursorPosition(
-                                e.currentTarget.selectionStart ?? 0,
-                              );
-                            }}
-                            onKeyDown={(e) => {
-                              // When inline question is active, Enter advances the question
-                              if (
-                                showInlineQuestion &&
-                                e.key === "Enter" &&
-                                !e.shiftKey
-                              ) {
-                                e.preventDefault();
-                                inlineQuestion.handleNext();
-                                return;
-                              }
-                              // Let suggestions handle keyboard events first
-                              if (handleSuggestionsKeyDown(e)) {
-                                return;
-                              }
-                              if (handleSlashKeyDown(e)) {
-                                return;
-                              }
-                              // On iOS, Return should insert a newline (send via submit button)
-                              if (
-                                e.key === "Enter" &&
-                                !e.shiftKey &&
-                                !isIosDevice &&
-                                !isChatInFlight &&
-                                !hasPendingResponse
-                              ) {
-                                e.preventDefault();
-                                if (!isArchived) {
-                                  e.currentTarget.form?.requestSubmit();
-                                }
-                              }
-                            }}
-                            onKeyUp={(e) => {
-                              setCursorPosition(
-                                e.currentTarget.selectionStart ?? 0,
-                              );
-                            }}
-                            onClick={(e) => {
-                              setCursorPosition(
-                                e.currentTarget.selectionStart ?? 0,
-                              );
-                            }}
-                            onPaste={(e) => {
-                              const items = e.clipboardData?.items;
-                              if (items) {
-                                for (const item of items) {
-                                  if (isValidImageType(item.type)) {
-                                    const file = item.getAsFile();
-                                    if (file) {
-                                      e.preventDefault();
-                                      addImage(file).catch(() => {
-                                        // Silently ignore paste errors - rare edge case
-                                      });
-                                      return;
-                                    }
-                                  }
-                                }
-                              }
-
-                              // Handle large text pastes – convert to file attachment
-                              const pastedText =
-                                e.clipboardData?.getData("text/plain");
-                              if (pastedText && isLargeText(pastedText)) {
-                                e.preventDefault();
-                                addTextAttachment(pastedText);
-                              }
-                            }}
-                            disabled={isArchived}
-                            className="w-full resize-none overflow-y-auto bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none"
-                            style={{ minHeight: "24px" }}
-                          />
-                        </div>
-
-                        {/* Bottom toolbar */}
-                        <div className="flex items-center justify-between gap-2 px-3 pb-2">
-                          <div className="flex min-w-0 items-center gap-2 overflow-hidden">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={openFilePicker}
-                              disabled={isArchived}
-                              className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground"
-                            >
-                              <Paperclip className="h-4 w-4" />
-                            </Button>
-                            {chatInfo.modelId && (
-                              <div
-                                className={
-                                  isChatInFlight ||
-                                  isUpdatingModel ||
-                                  modelOptionsLoading
-                                    ? "pointer-events-none opacity-60"
-                                    : undefined
-                                }
-                              >
-                                <ModelSelectorCompact
-                                  value={chatInfo.modelId}
-                                  modelOptions={modelOptions}
-                                  disabled={
-                                    isChatInFlight ||
-                                    isUpdatingModel ||
-                                    modelOptionsLoading
-                                  }
-                                  onCloseAutoFocus={() => {
-                                    window.requestAnimationFrame(() => {
-                                      const textarea = inputRef.current;
-                                      if (!textarea) {
-                                        return;
+                                    if (p.type === "data-snippet") {
+                                      if (
+                                        !isToolCallsExpanded &&
+                                        m.role === "assistant"
+                                      ) {
+                                        return null;
                                       }
+                                      return (
+                                        <div
+                                          key={`${m.id}-${group.renderKey}`}
+                                          className={cn(
+                                            "flex",
+                                            m.role === "user"
+                                              ? "justify-end"
+                                              : "justify-start",
+                                          )}
+                                        >
+                                          <div className="group relative w-fit max-w-[80%]">
+                                            <SnippetChip
+                                              filename={p.data.filename}
+                                              content={p.data.content}
+                                            />
+                                            {m.role === "user" &&
+                                              group.index === 0 && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() =>
+                                                    void handleDeleteUserMessage(
+                                                      m.id,
+                                                    )
+                                                  }
+                                                  disabled={
+                                                    hasMessageActionInFlight
+                                                  }
+                                                  aria-label="Delete this message and everything after it"
+                                                  className="absolute -left-10 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground opacity-0 transition hover:text-destructive group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
+                                                >
+                                                  {deletingMessageId ===
+                                                  m.id ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                  ) : (
+                                                    <Trash2 className="h-4 w-4" />
+                                                  )}
+                                                </button>
+                                              )}
+                                          </div>
+                                        </div>
+                                      );
+                                    }
 
-                                      textarea.focus();
-                                      const nextCursorPosition = Math.min(
-                                        cursorPosition,
-                                        textarea.value.length,
-                                      );
-                                      textarea.setSelectionRange(
-                                        nextCursorPosition,
-                                        nextCursorPosition,
-                                      );
-                                    });
-                                  }}
-                                  onChange={(modelId) => {
-                                    void handleModelChange(modelId);
-                                  }}
+                                    return null;
+                                  });
+
+                                if (m.role === "assistant") {
+                                  return (
+                                    <AssistantMessageGroups
+                                      key={m.id}
+                                      message={m}
+                                      isStreaming={isMessageStreaming}
+                                      durationMs={
+                                        messageDurationMap[m.id] ?? null
+                                      }
+                                      startedAt={
+                                        messageStartedAtMap[m.id] ??
+                                        (isMessageStreaming
+                                          ? lastSendTimestampRef.current
+                                            ? new Date(
+                                                lastSendTimestampRef.current,
+                                              ).toISOString()
+                                            : lastUserMessageSentAt
+                                          : null)
+                                      }
+                                    >
+                                      {renderGroups}
+                                    </AssistantMessageGroups>
+                                  );
+                                }
+
+                                return (
+                                  <div
+                                    key={m.id}
+                                    className="flex flex-col gap-1"
+                                  >
+                                    {renderGroups(true)}
+                                  </div>
+                                );
+                              },
+                            )}
+                            {showThinkingIndicator && (
+                              <div className="my-1.5 border border-transparent py-0.5">
+                                <MojoThinking
+                                  message={workspaceStatus?.message}
                                 />
                               </div>
                             )}
-                            <ContextUsageIndicator
-                              inputTokens={tokenUsage.inputTokens}
-                              conversationInputTokens={
-                                conversationUsage.inputTokens
+                          </div>
+                        </OpenFileProvider>
+                      </ScreenshotSourceProvider>
+                    </div>
+                  </div>
+                  {!isAtBottom && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-secondary text-secondary-foreground hover:bg-accent"
+                      onClick={scrollToBottom}
+                    >
+                      <ArrowDown className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+
+                {/* Input */}
+                <div className="p-4 pb-2 sm:pb-8">
+                  <div className="mx-auto max-w-4xl space-y-2">
+                    {sandboxCreateError && (
+                      <SandboxCreateErrorBanner
+                        error={sandboxCreateError}
+                        onDismiss={() => setSandboxCreateError(null)}
+                      />
+                    )}
+                    {restoreError && (
+                      <div className="flex items-center justify-between rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                        <span>{restoreError}</span>
+                        <button
+                          type="button"
+                          onClick={() => setRestoreError(null)}
+                          className="ml-2 rounded p-0.5 hover:bg-destructive/20"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
+                    {deleteMessageError && (
+                      <div className="flex items-center justify-between rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                        <span>{deleteMessageError}</span>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteMessageError(null)}
+                          className="ml-2 rounded p-0.5 hover:bg-destructive/20"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
+                    {/* Hidden file input */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept={ACCEPT_IMAGE_TYPES}
+                      multiple
+                      onChange={(e) => {
+                        const files = e.target.files;
+                        if (files && files.length > 0) {
+                          addImages(files);
+                        }
+                        e.target.value = "";
+                      }}
+                      className="hidden"
+                    />
+                    <div className="relative">
+                      {showSuggestions && (
+                        <FileSuggestionsDropdown
+                          suggestions={suggestions}
+                          selectedIndex={selectedIndex}
+                          onSelect={(suggestion) => {
+                            if (mentionInfo) {
+                              handleFileSelect(
+                                suggestion.value,
+                                mentionInfo.mentionStart,
+                                cursorPosition,
+                              );
+                            }
+                          }}
+                          isLoading={filesLoading}
+                        />
+                      )}
+                      {showSlashCommands && !showSuggestions && (
+                        <SlashCommandDropdown
+                          suggestions={slashSuggestions}
+                          selectedIndex={selectedSlashIndex}
+                          onSelect={(suggestion) => {
+                            if (slashInfo) {
+                              handleSlashCommandSelect(
+                                suggestion.name,
+                                slashInfo.slashStart,
+                                cursorPosition,
+                              );
+                            }
+                          }}
+                          isLoading={skillsLoading}
+                        />
+                      )}
+                      {/* Pinned Todo Panel — sits above the input box */}
+                      <TaskBriefControls
+                        key={chatInfo.id}
+                        messages={messages}
+                        buildBlocked={userStopped || !!error}
+                        disabled={
+                          isArchived ||
+                          isChatInFlight ||
+                          hasPendingResponse ||
+                          showInlineQuestion
+                        }
+                        onSend={sendMessageWithPendingState}
+                      />
+                      <QualityReviewControls
+                        key={`quality-${chatInfo.id}`}
+                        messages={messages}
+                        fixBlocked={userStopped || !!error}
+                        disabled={
+                          isArchived ||
+                          isChatInFlight ||
+                          hasPendingResponse ||
+                          showInlineQuestion
+                        }
+                        onSend={sendMessageWithPendingState}
+                      />
+                      <PinnedTodoPanel todos={latestTodos} />
+                      {/* Input form */}
+                      <div
+                        className={cn(
+                          "overflow-hidden rounded-2xl border border-border bg-card/90 shadow-sm backdrop-blur transition-[border-color,box-shadow] duration-300 focus-within:border-mojo-blue/40 focus-within:shadow-mojo",
+                          (isChatInFlight || hasPendingResponse) &&
+                            "mojo-border-spin",
+                          isDragging && "ring-2 ring-mojo-blue/50",
+                        )}
+                      >
+                        <form
+                          onSubmit={async (e) => {
+                            e.preventDefault();
+                            // When inline question is active, don't send a chat message
+                            if (showInlineQuestion) return;
+                            if (
+                              isArchived ||
+                              isChatInFlight ||
+                              hasPendingResponse
+                            ) {
+                              return;
+                            }
+                            const hasContent =
+                              input.trim() ||
+                              images.length > 0 ||
+                              textAttachments.length > 0;
+                            if (!hasContent) return;
+
+                            const messageText = input;
+                            const files = getFileParts();
+
+                            // Build the message payload. When text attachments are
+                            // present we use the parts-based form so we can include
+                            // data-snippet parts alongside text and file parts.
+                            const hasSnippets = textAttachments.length > 0;
+                            let messagePayload: Parameters<
+                              typeof sendMessageWithPendingState
+                            >[0];
+
+                            if (hasSnippets) {
+                              const parts: WebAgentUIMessage["parts"] = [];
+                              if (messageText.trim()) {
+                                parts.push({
+                                  type: "text" as const,
+                                  text: messageText,
+                                });
                               }
-                              conversationCachedInputTokens={
-                                conversationUsage.cachedInputTokens
+                              if (files) {
+                                for (const f of files) {
+                                  parts.push(f);
+                                }
                               }
-                              conversationOutputTokens={
-                                conversationUsage.outputTokens
+                              for (const attachment of textAttachments) {
+                                parts.push({
+                                  type: "data-snippet" as const,
+                                  id: attachment.id,
+                                  data: {
+                                    content: attachment.content,
+                                    filename: attachment.filename,
+                                  },
+                                });
                               }
-                              conversationCost={conversationCost}
-                              contextLimit={
-                                contextLimit ?? DEFAULT_CONTEXT_LIMIT
+                              messagePayload = { parts };
+                            } else {
+                              messagePayload = {
+                                text: messageText,
+                                files,
+                              };
+                            }
+
+                            chatDraft.holdForSubmission(messageText);
+                            setInput("");
+                            clearImages();
+                            clearTextAttachments();
+
+                            const isFirstChatInSession =
+                              initialIsOnlyChatInSession;
+                            const shouldSetOptimisticTitle =
+                              isFirstChatInSession &&
+                              !hadInitialMessages &&
+                              messages.length === 0;
+                            const trimmedText = messageText.trim();
+                            const shouldGenerateSessionTitle =
+                              shouldSetOptimisticTitle &&
+                              trimmedText.length > 0 &&
+                              !hasRequestedSessionTitleGenerationRef.current;
+                            if (
+                              shouldSetOptimisticTitle &&
+                              trimmedText.length > 0
+                            ) {
+                              const nextTitle =
+                                trimmedText.length > 80
+                                  ? `${trimmedText.slice(0, 80)}...`
+                                  : trimmedText;
+                              pendingOptimisticTitleChatIdRef.current =
+                                chatInfo.id;
+                              void setChatTitle(chatInfo.id, nextTitle);
+
+                              if (shouldGenerateSessionTitle) {
+                                hasRequestedSessionTitleGenerationRef.current = true;
+                                // Generate a title in parallel and persist it as soon as it
+                                // resolves, without waiting for the assistant response.
+                                const generatedTitlePromise = fetch(
+                                  "/api/generate-title",
+                                  {
+                                    method: "POST",
+                                    headers: {
+                                      "Content-Type": "application/json",
+                                    },
+                                    body: JSON.stringify({
+                                      message: trimmedText,
+                                    }),
+                                  },
+                                )
+                                  .then(async (res) => {
+                                    if (!res.ok) {
+                                      return null;
+                                    }
+
+                                    const data = (await res
+                                      .json()
+                                      .catch(() => null)) as {
+                                      title?: unknown;
+                                    } | null;
+                                    if (typeof data?.title !== "string") {
+                                      return null;
+                                    }
+
+                                    const title = data.title.trim();
+                                    return title.length > 0 ? title : null;
+                                  })
+                                  .catch(() => null);
+
+                                void generatedTitlePromise
+                                  .then((generatedTitle) => {
+                                    if (!generatedTitle) {
+                                      return;
+                                    }
+                                    return updateSessionTitle(generatedTitle);
+                                  })
+                                  .catch(() => {
+                                    // Ignore failures and keep the existing session title.
+                                  });
                               }
+                            }
+                            try {
+                              await sendMessageWithPendingState(messagePayload);
+                            } catch (err) {
+                              if (pendingOptimisticTitleChatIdRef.current) {
+                                void clearChatTitle(
+                                  pendingOptimisticTitleChatIdRef.current,
+                                );
+                                pendingOptimisticTitleChatIdRef.current = null;
+                              }
+                              chatDraft.restoreAfterFailure(messageText);
+                              console.error("Failed to send message:", err);
+                            }
+                          }}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            setIsDragging(true);
+                          }}
+                          onDragLeave={(e) => {
+                            e.preventDefault();
+                            // Only set isDragging to false if we're leaving the form entirely
+                            // (not just moving to a child element)
+                            if (
+                              !e.currentTarget.contains(e.relatedTarget as Node)
+                            ) {
+                              setIsDragging(false);
+                            }
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            setIsDragging(false);
+                            const files = e.dataTransfer.files;
+                            if (files.length > 0) {
+                              addImages(files);
+                            }
+                          }}
+                        >
+                          {/* Sandbox overlay when inactive */}
+                          <SandboxInputOverlay
+                            isArchived={isArchived}
+                            snapshotPending={isArchiveSnapshotPending}
+                          />
+
+                          {/* Attachments preview */}
+                          {(images.length > 0 ||
+                            textAttachments.length > 0) && (
+                            <div className="flex min-w-0 flex-wrap items-start gap-2 px-2 pb-1 pt-2">
+                              {images.length > 0 && (
+                                <ImageAttachmentsPreview
+                                  images={images}
+                                  onRemove={removeImage}
+                                  className="p-0"
+                                />
+                              )}
+                              {textAttachments.length > 0 && (
+                                <TextAttachmentsPreview
+                                  attachments={textAttachments}
+                                  onRemove={removeTextAttachment}
+                                  className="p-0"
+                                />
+                              )}
+                            </div>
+                          )}
+
+                          {/* Inline question UI for mobile — rendered inside prompt box */}
+                          {showInlineQuestion &&
+                            inlineQuestion.questionHeaderUI}
+
+                          {/* Textarea area */}
+                          <div className="px-4 pb-2 pt-3">
+                            <textarea
+                              ref={inputRef}
+                              value={input}
+                              placeholder={
+                                showInlineQuestion
+                                  ? inlineQuestion.placeholder
+                                  : "Ask Mojo to fix, build, or explain something…"
+                              }
+                              rows={1}
+                              onFocus={handleTextareaFocus}
+                              onChange={(e) => {
+                                setInput(e.currentTarget.value);
+                                setCursorPosition(
+                                  e.currentTarget.selectionStart ?? 0,
+                                );
+                              }}
+                              onKeyDown={(e) => {
+                                // When inline question is active, Enter advances the question
+                                if (
+                                  showInlineQuestion &&
+                                  e.key === "Enter" &&
+                                  !e.shiftKey
+                                ) {
+                                  e.preventDefault();
+                                  inlineQuestion.handleNext();
+                                  return;
+                                }
+                                // Let suggestions handle keyboard events first
+                                if (handleSuggestionsKeyDown(e)) {
+                                  return;
+                                }
+                                if (handleSlashKeyDown(e)) {
+                                  return;
+                                }
+                                // On iOS, Return should insert a newline (send via submit button)
+                                if (
+                                  e.key === "Enter" &&
+                                  !e.shiftKey &&
+                                  !isIosDevice &&
+                                  !isChatInFlight &&
+                                  !hasPendingResponse
+                                ) {
+                                  e.preventDefault();
+                                  if (!isArchived) {
+                                    e.currentTarget.form?.requestSubmit();
+                                  }
+                                }
+                              }}
+                              onKeyUp={(e) => {
+                                setCursorPosition(
+                                  e.currentTarget.selectionStart ?? 0,
+                                );
+                              }}
+                              onClick={(e) => {
+                                setCursorPosition(
+                                  e.currentTarget.selectionStart ?? 0,
+                                );
+                              }}
+                              onPaste={(e) => {
+                                const items = e.clipboardData?.items;
+                                if (items) {
+                                  for (const item of items) {
+                                    if (isValidImageType(item.type)) {
+                                      const file = item.getAsFile();
+                                      if (file) {
+                                        e.preventDefault();
+                                        addImage(file).catch(() => {
+                                          // Silently ignore paste errors - rare edge case
+                                        });
+                                        return;
+                                      }
+                                    }
+                                  }
+                                }
+
+                                // Handle large text pastes – convert to file attachment
+                                const pastedText =
+                                  e.clipboardData?.getData("text/plain");
+                                if (pastedText && isLargeText(pastedText)) {
+                                  e.preventDefault();
+                                  addTextAttachment(pastedText);
+                                }
+                              }}
+                              disabled={isArchived}
+                              className="w-full resize-none overflow-y-auto bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none"
+                              style={{ minHeight: "24px" }}
                             />
                           </div>
 
-                          <div className="flex shrink-0 items-center gap-1">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={handleMicClick}
-                              disabled={
-                                isArchived || recordingState === "processing"
-                              }
-                              className={`relative h-8 w-8 rounded-full ${
-                                recordingState === "recording"
-                                  ? "text-red-500"
-                                  : "text-muted-foreground hover:text-foreground"
-                              }`}
-                            >
-                              {recordingState === "recording" && (
-                                <span className="absolute inset-0 animate-pulse rounded-full bg-red-500/30" />
-                              )}
-                              {recordingState === "processing" ? (
-                                <Loader2 className="h-5 w-5 animate-spin" />
-                              ) : (
-                                <Mic className="h-5 w-5" />
-                              )}
-                            </Button>
-
-                            {showInlineQuestion ? (
+                          {/* Bottom toolbar */}
+                          <div className="flex items-center justify-between gap-2 px-3 pb-2">
+                            <div className="flex min-w-0 items-center gap-2 overflow-hidden">
                               <Button
                                 type="button"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  inlineQuestion.handleNext();
-                                }}
-                                disabled={!inlineQuestion.hasCurrentAnswer}
-                                className="h-8 rounded-full bg-primary px-3 text-xs text-primary-foreground hover:bg-primary/90 disabled:opacity-30"
-                              >
-                                <Check className="h-3 w-3" />
-                                <span className="sm:hidden">
-                                  {inlineQuestion.compactButtonLabel}
-                                </span>
-                                <span className="hidden sm:inline">
-                                  {inlineQuestion.buttonLabel}
-                                </span>
-                              </Button>
-                            ) : isChatInFlight || hasPendingResponse ? (
-                              <Button
-                                type="button"
+                                variant="ghost"
                                 size="icon"
-                                onClick={() => {
-                                  stopChatStream();
-                                  setHasPendingResponse(false);
-                                  setUserStopped(true);
-                                  void setChatStreaming(chatInfo.id, false);
-                                }}
-                                className="h-8 w-8 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                style={{ touchAction: "manipulation" }}
+                                onClick={openFilePicker}
+                                disabled={isArchived}
+                                className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground"
                               >
-                                <Square className="h-3 w-3 fill-current" />
+                                <Paperclip className="h-4 w-4" />
                               </Button>
-                            ) : (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span>
-                                    <Button
-                                      type="submit"
-                                      size="icon"
-                                      onTouchEnd={() => {
-                                        // On iOS, tapping submit while the textarea is focused
-                                        // causes the keyboard to briefly flash open then closed.
-                                        // Blur the textarea immediately to prevent this.
-                                        inputRef.current?.blur();
-                                      }}
-                                      disabled={
-                                        isArchived ||
-                                        isChatInFlight ||
-                                        (!input.trim() &&
-                                          images.length === 0 &&
-                                          textAttachments.length === 0) ||
-                                        isUpdatingModel
-                                      }
-                                      className="h-8 w-8 rounded-full bg-gradient-mojo text-white shadow-mojo transition-transform hover:scale-105 hover:brightness-110 disabled:opacity-30 disabled:shadow-none"
-                                    >
-                                      <ArrowUp className="h-4 w-4" />
-                                    </Button>
-                                  </span>
-                                </TooltipTrigger>
-                              </Tooltip>
-                            )}
-                          </div>
-                        </div>
-                      </form>
-                    </div>
+                              {chatInfo.modelId && (
+                                <div
+                                  className={
+                                    isChatInFlight ||
+                                    isUpdatingModel ||
+                                    modelOptionsLoading
+                                      ? "pointer-events-none opacity-60"
+                                      : undefined
+                                  }
+                                >
+                                  <ModelSelectorCompact
+                                    value={chatInfo.modelId}
+                                    modelOptions={modelOptions}
+                                    disabled={
+                                      isChatInFlight ||
+                                      isUpdatingModel ||
+                                      modelOptionsLoading
+                                    }
+                                    onCloseAutoFocus={() => {
+                                      window.requestAnimationFrame(() => {
+                                        const textarea = inputRef.current;
+                                        if (!textarea) {
+                                          return;
+                                        }
 
-                    {/* Recording error message */}
-                    {recordingError && (
-                      <p className="mt-2 text-sm text-destructive">
-                        {recordingError}
-                      </p>
-                    )}
+                                        textarea.focus();
+                                        const nextCursorPosition = Math.min(
+                                          cursorPosition,
+                                          textarea.value.length,
+                                        );
+                                        textarea.setSelectionRange(
+                                          nextCursorPosition,
+                                          nextCursorPosition,
+                                        );
+                                      });
+                                    }}
+                                    onChange={(modelId) => {
+                                      void handleModelChange(modelId);
+                                    }}
+                                  />
+                                </div>
+                              )}
+                              <ContextUsageIndicator
+                                inputTokens={tokenUsage.inputTokens}
+                                conversationInputTokens={
+                                  conversationUsage.inputTokens
+                                }
+                                conversationCachedInputTokens={
+                                  conversationUsage.cachedInputTokens
+                                }
+                                conversationOutputTokens={
+                                  conversationUsage.outputTokens
+                                }
+                                conversationCost={conversationCost}
+                                contextLimit={
+                                  contextLimit ?? DEFAULT_CONTEXT_LIMIT
+                                }
+                              />
+                            </div>
+
+                            <div className="flex shrink-0 items-center gap-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={handleMicClick}
+                                disabled={
+                                  isArchived || recordingState === "processing"
+                                }
+                                className={`relative h-8 w-8 rounded-full ${
+                                  recordingState === "recording"
+                                    ? "text-red-500"
+                                    : "text-muted-foreground hover:text-foreground"
+                                }`}
+                              >
+                                {recordingState === "recording" && (
+                                  <span className="absolute inset-0 animate-pulse rounded-full bg-red-500/30" />
+                                )}
+                                {recordingState === "processing" ? (
+                                  <Loader2 className="h-5 w-5 animate-spin" />
+                                ) : (
+                                  <Mic className="h-5 w-5" />
+                                )}
+                              </Button>
+
+                              {showInlineQuestion ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    inlineQuestion.handleNext();
+                                  }}
+                                  disabled={!inlineQuestion.hasCurrentAnswer}
+                                  className="h-8 rounded-full bg-primary px-3 text-xs text-primary-foreground hover:bg-primary/90 disabled:opacity-30"
+                                >
+                                  <Check className="h-3 w-3" />
+                                  <span className="sm:hidden">
+                                    {inlineQuestion.compactButtonLabel}
+                                  </span>
+                                  <span className="hidden sm:inline">
+                                    {inlineQuestion.buttonLabel}
+                                  </span>
+                                </Button>
+                              ) : isChatInFlight || hasPendingResponse ? (
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  onClick={() => {
+                                    stopChatStream();
+                                    setHasPendingResponse(false);
+                                    setUserStopped(true);
+                                    void setChatStreaming(chatInfo.id, false);
+                                  }}
+                                  className="h-8 w-8 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  style={{ touchAction: "manipulation" }}
+                                >
+                                  <Square className="h-3 w-3 fill-current" />
+                                </Button>
+                              ) : (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span>
+                                      <Button
+                                        type="submit"
+                                        size="icon"
+                                        onTouchEnd={() => {
+                                          // On iOS, tapping submit while the textarea is focused
+                                          // causes the keyboard to briefly flash open then closed.
+                                          // Blur the textarea immediately to prevent this.
+                                          inputRef.current?.blur();
+                                        }}
+                                        disabled={
+                                          isArchived ||
+                                          isChatInFlight ||
+                                          (!input.trim() &&
+                                            images.length === 0 &&
+                                            textAttachments.length === 0) ||
+                                          isUpdatingModel
+                                        }
+                                        className="h-8 w-8 rounded-full bg-gradient-mojo text-white shadow-mojo transition-transform hover:scale-105 hover:brightness-110 disabled:opacity-30 disabled:shadow-none"
+                                      >
+                                        <ArrowUp className="h-4 w-4" />
+                                      </Button>
+                                    </span>
+                                  </TooltipTrigger>
+                                </Tooltip>
+                              )}
+                            </div>
+                          </div>
+                        </form>
+                      </div>
+
+                      {/* Recording error message */}
+                      {recordingError && (
+                        <p className="mt-2 text-sm text-destructive">
+                          {recordingError}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </>
-          )}
+              </>
+            )}
+          </div>
+          {preview.isOpen ? <PreviewPane preview={preview} /> : null}
         </div>
       </div>
 
