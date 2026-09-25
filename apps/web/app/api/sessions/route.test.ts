@@ -19,6 +19,9 @@ let currentVercelToken: string | null = "vercel-token";
 let matchingProjects: VercelProjectSelection[] = [];
 let matchingProjectsError: Error | null = null;
 const createCalls: Array<Record<string, unknown>> = [];
+const initialChatCalls: Array<Record<string, unknown>> = [];
+let repoPreferencesState: Record<string, unknown> | null = null;
+const repoPreferencesLookups: Array<[string, string, string]> = [];
 const upsertCalls: Array<Record<string, unknown>> = [];
 const provisioningKickCalls: string[] = [];
 
@@ -45,6 +48,17 @@ mock.module("@/lib/db/user-preferences", () => ({
     modelVariants: [],
     enabledModelIds: [],
   }),
+}));
+
+mock.module("@/lib/db/repo-preferences", () => ({
+  getRepoPreferences: async (
+    userId: string,
+    repoOwner: string,
+    repoName: string,
+  ) => {
+    repoPreferencesLookups.push([userId, repoOwner, repoName]);
+    return repoPreferencesState;
+  },
 }));
 
 mock.module("@/lib/db/vercel-project-links", () => ({
@@ -75,6 +89,7 @@ mock.module("@/lib/db/sessions", () => ({
     initialChat: Record<string, unknown>;
   }) => {
     createCalls.push(input.session);
+    initialChatCalls.push(input.initialChat);
     return {
       session: {
         ...input.session,
@@ -129,6 +144,62 @@ describe("/api/sessions POST vercel project linking", () => {
     createCalls.length = 0;
     upsertCalls.length = 0;
     provisioningKickCalls.length = 0;
+    initialChatCalls.length = 0;
+    repoPreferencesState = null;
+    repoPreferencesLookups.length = 0;
+  });
+
+  test("repository preferences set the first chat model and add skills", async () => {
+    repoPreferencesState = {
+      modelId: "openai/gpt-5",
+      skillRefs: [
+        { source: "vercel/ai", skillName: "ai-sdk" },
+        { source: "acme/skills", skillName: "deploy" },
+      ],
+      setupCommand: null,
+      checkCommand: null,
+      instructions: null,
+    };
+    const { POST } = await routeModulePromise;
+
+    const response = await POST(
+      createJsonRequest({
+        repoOwner: "vercel",
+        repoName: "open-agents",
+        branch: "main",
+        cloneUrl: "https://github.com/vercel/open-agents",
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(repoPreferencesLookups).toEqual([
+      ["user-1", "vercel", "open-agents"],
+    ]);
+    expect(initialChatCalls[0]).toMatchObject({ modelId: "openai/gpt-5" });
+    expect(createCalls[0]).toMatchObject({
+      globalSkillRefs: [
+        { source: "vercel/ai", skillName: "ai-sdk" },
+        { source: "acme/skills", skillName: "deploy" },
+      ],
+    });
+  });
+
+  test("without repository preferences the user default model is used", async () => {
+    const { POST } = await routeModulePromise;
+
+    const response = await POST(
+      createJsonRequest({
+        repoOwner: "vercel",
+        repoName: "open-agents",
+        branch: "main",
+        cloneUrl: "https://github.com/vercel/open-agents",
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(initialChatCalls[0]).toMatchObject({
+      modelId: "anthropic/claude-haiku-4.5",
+    });
   });
 
   test("explicit Vercel project is validated against live repo matches before it is persisted", async () => {

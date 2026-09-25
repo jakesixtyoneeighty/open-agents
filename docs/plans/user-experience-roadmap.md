@@ -12,8 +12,8 @@ Deviation (2026-09-24): increment 3 was skipped because it needs an infrastructu
 | 5 | Separate closing from deleting — implemented locally | Closed tabs remain in history; permanent deletion stays explicit. `chats.closed_at` column (migration 0037); tab X closes, closed chats menu reopens or deletes with confirmation. Route + fixture browser checks passed; live authenticated acceptance pending. |
 | 6 | Accurate outcome alerts | Completed, stopped, failed, and needs-input states derive from authoritative outcomes. |
 | 7 | Focused quality passes | Bounded mobile/accessibility/code review produces findings before requested fixes. |
-| 8 | Diff review progress | Reviewed files and next-unreviewed navigation; edits invalidate reviewed status. |
-| 9 | Repository preferences | Owner-scoped model, skills, startup/check commands and instructions reused across sessions. |
+| 8 | Diff review progress — implemented locally | Reviewed files and next-unreviewed navigation; edits invalidate reviewed status. Per-session localStorage marks fingerprinted on each file's patch against base (`lib/diff-review-storage.ts`, `hooks/use-diff-review.ts`); "Viewed" toggle, `n/m viewed` count and next-unreviewed button in the diff tab, checkmarks in the git panel. Unit tests and CI passed; browser check and live authenticated acceptance pending. |
+| 9 | Repository preferences — implemented locally | Owner-scoped model, skills, startup/check commands and instructions reused across sessions. `repo_preferences` table (migration 0038), Settings → Repositories, applied at session/chat creation, provisioning and every agent turn. Route, workflow and unit tests plus CI passed; browser check and live authenticated acceptance pending. |
 | 10 | Preview beside chat | Responsive widths, refresh and external fallback; preserve browser origin isolation. |
 
 Each increment must preserve session ownership checks, durable state, truthful verification claims, and existing in-progress work. Publishing/deployment is a separate step. No production changes are authorized by this roadmap alone.
@@ -84,3 +84,46 @@ Each increment must preserve session ownership checks, durable state, truthful v
   - Close/delete: closing (including the active tab) switched to another open chat with no dialog; the last tab had no close button; reopen and confirmed delete worked; the page stayed clickable after the dialog; no horizontal overflow at 390px.
   - The fixture caught one bug, which was fixed: the trash icon nested inside a menu item reopened the chat, because Radix selects items on pointer-up. Each row is now two sibling menu items.
 - Not yet exercised: live authenticated use against a real database, applying migration 0037 in a preview deployment, and multi-tab/multi-device draft behavior (drafts are per browser by design).
+
+### 8. Diff review progress — implemented locally
+
+**Behavior**
+- Each file header in the diff tab has a "Viewed" toggle. Marking a file viewed collapses it and keeps its header in view. The toolbar shows `n/m viewed` for the current scope, plus a "Next unreviewed file" button that expands and scrolls to the next unviewed file after the one you last worked on, wrapping around. It is disabled when every file is viewed.
+- A mark stores a fingerprint of the file's patch against the base branch (plus status, line counts and old path, which stand in for generated files that have no patch). Any later edit changes the fingerprint, so the file shows as unviewed again. A revert to the reviewed content shows as viewed again. Committing leaves the patch against the base unchanged, so marks survive commits, and they are shared between the uncommitted and branch scopes.
+- The git panel's file list shows a checkmark and muted name for viewed files. Both views read the same store, so they stay in sync (other browser tabs sync through the `storage` event).
+- Marks are per browser, keyed `open-agents:diff-review:<sessionId>`. Marks for files that are no longer changed, or that were edited since, are pruned on the next write.
+
+**Changes**
+- `apps/web/lib/diff-review-storage.ts` (+ `.test.ts`): fingerprinting, tolerant storage read/write, mark set/clear with pruning, and `findNextUnreviewedPath`.
+- `apps/web/app/sessions/[sessionId]/chats/[chatId]/hooks/use-diff-review.ts`: a `useSyncExternalStore` hook shared by both views.
+- `diff-tab-view.tsx`: Viewed toggle (a sibling button, not nested in the header button), count and next-unreviewed navigation. `git-panel.tsx`: viewed indicator.
+- Not changed: the older full-screen `diff-viewer.tsx` dialog.
+
+**Validation evidence**
+- `pnpm run ci` passed. New tests cover fingerprint changes, invalidation on edit, pruning, malformed or throwing storage, and next-unreviewed ordering and wrapping.
+- Browser check not done. The preview server config lives in the main checkout's `.claude/launch.json`, which this worktree session could not edit. A fixture page was written and then removed unused.
+
+### 9. Repository preferences — implemented locally
+
+**Decisions**
+- Preferences are keyed by `(user_id, repo_owner, repo_name)`, lowercased like `vercel_project_links`. Only the owning user can read or write them, and every API route derives the user from the session.
+- Null or blank fields fall back to account defaults. Repository skills are added to the user's global skills, with duplicates removed.
+- The model applies when a chat is created (the first chat in a session and new chats); changing a chat's model later is untouched. Instructions and the check command are read on every agent turn, so edits reach sessions that are already running. Skills and the setup command apply when a sandbox is set up.
+
+**Behavior**
+- Settings → Repositories: add a repository (`owner/repo` or a GitHub URL), then set the model (or "Use my default model"), skills, setup command, check command and instructions. There is save/discard and a confirmed removal.
+- Setup command: runs in the repo root after global skills when a fresh workspace is set up (provisioning workflow and `POST /api/sandbox`), with a 4-minute timeout. A failure is logged and does not fail provisioning. The agent is told the command exists and that its outcome is not reported, so it can re-run it.
+- Check command and instructions: added to the agent's project-specific instructions under "Repository preferences". The agent is told to run the check command before reporting work as done and to report the real result.
+
+**Changes**
+- `apps/web/lib/db/schema.ts`: `repo_preferences` table. Migration `lib/db/migrations/0038_grey_arclight.sql` creates the table only; no drift.
+- `apps/web/lib/db/repo-preferences.ts`: get, get-for-session, list, upsert, delete.
+- `apps/web/lib/repo-preferences/`: `schema.ts` (Zod input, limits, coordinate validation that rejects `.`/`..`), `resolve.ts` (model fallback, skill merge, prompt text), `parse-repo.ts`, `setup-command.ts` and `session-setup-command.ts`, each with tests where pure.
+- Routes: `GET /api/settings/repo-preferences`; `GET|PUT|DELETE /api/settings/repo-preferences/[owner]/[repo]` (+ tests).
+- Applied in `app/api/sessions/route.ts`, `app/api/sessions/[sessionId]/chats/route.ts` (GET's `defaultModelId` also reflects the repo model), `app/workflows/chat.ts`, `lib/sandbox/provisioning.ts` and `app/api/sandbox/route.ts`.
+- UI: `app/settings/repositories/`, `repo-preferences-section.tsx`, `repo-preferences-editor.tsx`, `hooks/use-repo-preferences.ts`, and a sidebar entry.
+
+**Validation evidence**
+- `pnpm run ci` passed. New tests cover the schema (trim/blank → null, size limits, skill cap), model/skill/prompt resolution, the setup command runner (skip, cwd/timeout, failure tail, exec throw), repo parsing, the API routes (auth, user scoping, validation, delete 404), session creation with and without repo preferences, and repo instructions reaching the agent's call options.
+- Not yet exercised: the settings page in a browser, migration 0038 in a preview deployment, and a real sandbox running a setup command.
+

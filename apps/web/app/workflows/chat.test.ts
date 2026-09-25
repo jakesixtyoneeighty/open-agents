@@ -358,6 +358,16 @@ mock.module("@/lib/db/user-preferences", () => ({
   getUserPreferences: async () => testPreferences,
 }));
 
+let testRepoPreferences: {
+  setupCommand: string | null;
+  checkCommand: string | null;
+  instructions: string | null;
+} | null = null;
+
+mock.module("@/lib/db/repo-preferences", () => ({
+  getRepoPreferencesForSession: async () => testRepoPreferences,
+}));
+
 mock.module("./chat-sandbox-runtime", () => ({
   resolveChatSandboxRuntime: spies.resolveChatSandboxRuntime,
 }));
@@ -433,10 +443,31 @@ beforeEach(() => {
     modelVariants: [],
     enabledModelIds: [],
   };
+  testRepoPreferences = null;
   Object.values(spies).forEach((s) => s.mockClear());
 });
 
 describe("runAgentWorkflow", () => {
+  test("repository instructions and check command reach the agent", async () => {
+    testRepoPreferences = {
+      setupCommand: null,
+      checkCommand: "pnpm run ci",
+      instructions: "Never edit generated files.",
+    };
+    await runAgentWorkflow(makeOptions());
+    expect(agentCallOptions?.customInstructions).toContain(
+      "Never edit generated files.",
+    );
+    expect(agentCallOptions?.customInstructions).toContain("pnpm run ci");
+  });
+
+  test("no repository section is added without repository preferences", async () => {
+    await runAgentWorkflow(makeOptions());
+    expect(agentCallOptions?.customInstructions).not.toContain(
+      "Repository preferences",
+    );
+  });
+
   test("planning reaches agent options and cannot auto-commit or create a PR", async () => {
     await runAgentWorkflow(
       makeOptions({

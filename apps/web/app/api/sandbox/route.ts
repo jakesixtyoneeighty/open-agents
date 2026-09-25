@@ -28,6 +28,7 @@ import {
   getNextLifecycleVersion,
 } from "@/lib/sandbox/lifecycle";
 import { kickSandboxLifecycleWorkflow } from "@/lib/sandbox/lifecycle-kick";
+import { runSessionRepoSetupCommand } from "@/lib/repo-preferences/session-setup-command";
 import { installGlobalSkills } from "@/lib/skills/global-skill-installer";
 import {
   canOperateOnSandbox,
@@ -269,6 +270,8 @@ export async function POST(req: Request) {
           error,
         );
       }
+
+      await runSessionRepoSetupCommand({ session: sessionRecord, sandbox });
     }
 
     kickSandboxLifecycleWorkflow({

@@ -123,6 +123,35 @@ export const vercelProjectLinks = pgTable(
   ],
 );
 
+// Per-user settings for one repository, reused by every session on it.
+// Owner/name are stored lowercased. Null fields fall back to user defaults.
+export const repoPreferences = pgTable(
+  "repo_preferences",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    repoOwner: text("repo_owner").notNull(),
+    repoName: text("repo_name").notNull(),
+    modelId: text("model_id"),
+    // Installed in addition to the user's global skills.
+    skillRefs: jsonb("skill_refs")
+      .$type<GlobalSkillRef[]>()
+      .notNull()
+      .default([]),
+    setupCommand: text("setup_command"),
+    checkCommand: text("check_command"),
+    instructions: text("instructions"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.userId, table.repoOwner, table.repoName],
+    }),
+  ],
+);
+
 export const sessions = pgTable(
   "sessions",
   {
@@ -320,6 +349,7 @@ export const workflowRunSteps = pgTable(
 export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;
 export type VercelProjectLink = typeof vercelProjectLinks.$inferSelect;
+export type RepoPreferences = typeof repoPreferences.$inferSelect;
 export type NewVercelProjectLink = typeof vercelProjectLinks.$inferInsert;
 export type Chat = typeof chats.$inferSelect;
 export type NewChat = typeof chats.$inferInsert;
