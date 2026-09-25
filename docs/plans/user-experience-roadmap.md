@@ -14,7 +14,7 @@ Deviation (2026-09-24): increment 3 was skipped because it needs an infrastructu
 | 7 | Focused quality passes | Bounded mobile/accessibility/code review produces findings before requested fixes. |
 | 8 | Diff review progress — implemented locally | Reviewed files and next-unreviewed navigation; edits invalidate reviewed status. Per-session localStorage marks fingerprinted on each file's patch against base (`lib/diff-review-storage.ts`, `hooks/use-diff-review.ts`); "Viewed" toggle, `n/m viewed` count and next-unreviewed button in the diff tab, checkmarks in the git panel. Unit tests and CI passed; browser check and live authenticated acceptance pending. |
 | 9 | Repository preferences — implemented locally | Owner-scoped model, skills, startup/check commands and instructions reused across sessions. `repo_preferences` table (migration 0038), Settings → Repositories, applied at session/chat creation, provisioning and every agent turn. Route, workflow and unit tests plus CI passed; browser check and live authenticated acceptance pending. |
-| 10 | Preview beside chat | Responsive widths, refresh and external fallback; preserve browser origin isolation. |
+| 10 | Preview beside chat — implemented locally | Responsive widths, refresh and external fallback; preserve browser origin isolation. `preview-pane.tsx` + `hooks/use-preview-pane.ts`; the frame only loads an https URL on an origin other than the app's (`lib/preview/preview-frame.ts`). Unit tests and CI passed; browser check and live authenticated acceptance pending. |
 
 Each increment must preserve session ownership checks, durable state, truthful verification claims, and existing in-progress work. Publishing/deployment is a separate step. No production changes are authorized by this roadmap alone.
 
@@ -126,4 +126,25 @@ Each increment must preserve session ownership checks, durable state, truthful v
 **Validation evidence**
 - `pnpm run ci` passed. New tests cover the schema (trim/blank → null, size limits, skill cap), model/skill/prompt resolution, the setup command runner (skip, cwd/timeout, failure tail, exec throw), repo parsing, the API routes (auth, user scoping, validation, delete 404), session creation with and without repo preferences, and repo instructions reaching the agent's call options.
 - Not yet exercised: the settings page in a browser, migration 0038 in a preview deployment, and a real sandbox running a setup command.
+
+### 10. Preview beside chat — implemented locally
+
+**Behavior**
+- Once the dev server is running, the header Globe button shows or hides a preview pane. The pane opens by itself when a start you asked for finishes, and closes when the server stops.
+- From the `lg` breakpoint up, the pane sits beside the chat, diff or file view: 45% wide, at least 360px, at most 70%. Below `lg` it covers the main area until you close it.
+- The toolbar shows the host, width presets (Fit, Mobile 390, Tablet 768, Desktop 1280), reload, open in new tab, and close. A preset wider than the pane is scaled down to fit, never up.
+- While loading there is a spinner. After 8 seconds the pane says the app may refuse to be framed and offers "Open in new tab", because a cross-origin frame gives no signal when it is blocked. "Open in new tab" is always in the toolbar and uses `noopener,noreferrer`.
+
+**Origin isolation**
+- The frame loads the sandbox's own URL (`sandbox.domain(port)`, for example `*.vercel.run`) and is never proxied through the app. `resolvePreviewFrameUrl` accepts only absolute https URLs without credentials whose origin differs from the app's. A same-origin URL is refused rather than framed, because `allow-scripts` + `allow-same-origin` on the app's own origin would let the page reach the app.
+- Sandbox flags match the existing codespace frame (`allow-scripts allow-same-origin allow-forms allow-popups allow-modals`), plus `referrerPolicy="no-referrer"`. The app sets no CSP `frame-src`, so nothing blocks the frame. A future CSP must allow the sandbox domains.
+
+**Changes**
+- `apps/web/lib/preview/preview-frame.ts` (+ `.test.ts`): viewport presets, URL rules, scale.
+- `apps/web/app/sessions/[sessionId]/chats/[chatId]/hooks/use-preview-pane.ts` and `preview-pane.tsx`.
+- `session-chat-content.tsx`: mounts the hook, points the Globe button at the pane, and wraps the main content in a row with the pane.
+
+**Validation evidence**
+- `pnpm run ci` passed. New tests cover URL acceptance and refusal (http, same origin, `javascript:`, relative, credentials), scaling and presets.
+- Not yet exercised: a real sandbox dev server in the pane, a dev server that sends `X-Frame-Options`, and the layout at each breakpoint.
 
