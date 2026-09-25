@@ -18,6 +18,7 @@ function createChat(
     title: `Chat ${id}`,
     modelId: "anthropic/claude-haiku-4.5",
     activeStreamId: null,
+    lastOutcome: null,
     lastAssistantMessageAt: null,
     closedAt: null,
     createdAt: now,

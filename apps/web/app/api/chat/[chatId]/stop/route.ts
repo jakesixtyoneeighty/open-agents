@@ -64,11 +64,12 @@ export async function POST(request: Request, context: RouteContext) {
   // Clear activeStreamId immediately so a follow-up prompt does not
   // reconnect to the cancelled (but not yet terminal) workflow.
   // Uses CAS to avoid clobbering a newer workflow that raced in.
-  await compareAndSetChatActiveStreamId(
+  await compareAndSetChatActiveStreamId(chatId, chat.activeStreamId, null, {
+    runId: chat.activeStreamId,
     chatId,
-    chat.activeStreamId,
-    null,
-  ).catch((err: unknown) => {
+    status: "stopped",
+    finishedAt: new Date().toISOString(),
+  }).catch((err: unknown) => {
     console.error(
       `[workflow] Failed to clear activeStreamId for chat ${chatId}:`,
       err,

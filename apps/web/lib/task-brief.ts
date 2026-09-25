@@ -71,6 +71,7 @@ export function getTaskBriefState(
   for (const message of messages) {
     if (message.role !== "user") continue;
     for (const part of message.parts) {
+      if (part.type === "data-quality-review") latest = null;
       if (part.type !== "data-task-brief") continue;
       const parsed = taskBriefSubmissionSchema.safeParse(part.data);
       if (parsed.success) latest = parsed.data;

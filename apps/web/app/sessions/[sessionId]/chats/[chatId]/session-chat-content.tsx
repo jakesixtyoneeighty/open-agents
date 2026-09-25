@@ -77,6 +77,8 @@ import {
   getLatestTodos,
 } from "@/components/pinned-todo-panel";
 import { MojoEmptyChat } from "@/components/brand/mojo-empty-chat";
+import { QualityReviewControls } from "@/components/quality-review/quality-review-controls";
+import { QualityReviewSummary } from "@/components/quality-review/quality-review-summary";
 import { TaskBriefControls } from "@/components/task-brief/task-brief-controls";
 import { TaskBriefSummary } from "@/components/task-brief/task-brief-summary";
 import { MojoThinking } from "@/components/brand/mojo-thinking";
@@ -2052,7 +2054,9 @@ export function SessionChatContent({
         }));
       const resendText = resendTextParts.map((part) => part.text).join("");
       const resendBriefs = targetMessage.parts.filter(
-        (part) => part.type === "data-task-brief",
+        (part) =>
+          part.type === "data-task-brief" ||
+          part.type === "data-quality-review",
       );
       const resendFiles = targetMessage.parts
         .filter((part): part is FileUIPart => part.type === "file")
@@ -3684,6 +3688,14 @@ export function SessionChatContent({
                                     );
                                   }
 
+                                  if (p.type === "data-quality-review") {
+                                    return (
+                                      <QualityReviewSummary
+                                        key={`${m.id}-${group.renderKey}`}
+                                        submission={p.data}
+                                      />
+                                    );
+                                  }
                                   if (p.type === "data-task-brief") {
                                     return (
                                       <TaskBriefSummary
@@ -3887,6 +3899,18 @@ export function SessionChatContent({
                       key={chatInfo.id}
                       messages={messages}
                       buildBlocked={userStopped || !!error}
+                      disabled={
+                        isArchived ||
+                        isChatInFlight ||
+                        hasPendingResponse ||
+                        showInlineQuestion
+                      }
+                      onSend={sendMessageWithPendingState}
+                    />
+                    <QualityReviewControls
+                      key={`quality-${chatInfo.id}`}
+                      messages={messages}
+                      fixBlocked={userStopped || !!error}
                       disabled={
                         isArchived ||
                         isChatInFlight ||

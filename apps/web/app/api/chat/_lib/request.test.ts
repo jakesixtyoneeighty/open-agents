@@ -36,3 +36,39 @@ test("rejects malformed briefs and assistant-authored mode switches", async () =
     if (!result.ok) expect(result.response.status).toBe(400);
   }
 });
+
+test("quality pass control parts reject malformed, duplicate and assistant-authored switches", async () => {
+  const valid = {
+    type: "data-quality-review",
+    data: { focus: "code", action: "review", scope: "lib/auth" },
+  };
+  for (const [role, parts, ok] of [
+    ["user", [valid], true],
+    ["assistant", [valid], false],
+    ["user", [valid, valid], false],
+    [
+      "user",
+      [{ ...valid, data: { ...valid.data, focus: "everything" } }],
+      false,
+    ],
+    [
+      "user",
+      [
+        valid,
+        {
+          type: "data-task-brief",
+          data: { action: "plan", brief: { goal: "test" } },
+        },
+      ],
+      false,
+    ],
+  ] as const) {
+    const result = await parseChatRequestBody(
+      new Request("http://localhost/api/chat", {
+        method: "POST",
+        body: JSON.stringify({ messages: [{ id: "u", role, parts }] }),
+      }),
+    );
+    expect(result.ok).toBe(ok);
+  }
+});

@@ -153,6 +153,11 @@ describe("POST /api/chat/[chatId]/stop", () => {
       "chat-1",
       "wrun_active-123",
       null,
+      expect.objectContaining({
+        runId: "wrun_active-123",
+        chatId: "chat-1",
+        status: "stopped",
+      }),
     );
   });
 

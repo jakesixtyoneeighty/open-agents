@@ -1,5 +1,6 @@
 import type { SandboxState } from "@open-agents/sandbox";
 import { and, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import type { ChatOutcome } from "../chat/outcome";
 import { db } from "./client";
 import {
   chatMessages,
@@ -171,6 +172,7 @@ type SessionSidebarFields = Pick<
 export type SessionWithUnread = SessionSidebarFields & {
   hasUnread: boolean;
   hasStreaming: boolean;
+  chatOutcomes: ChatOutcome[];
   latestChatId: string | null;
   lastActivityAt: Date;
 };
@@ -223,6 +225,10 @@ export async function getSessionsWithUnreadByUserId(
         END
       ), false)`,
       hasStreaming: sql<boolean>`COALESCE(BOOL_OR(${chats.activeStreamId} IS NOT NULL), false)`,
+      chatOutcomes: sql<ChatOutcome[]>`COALESCE(
+        JSONB_AGG(${chats.lastOutcome}) FILTER (WHERE ${chats.lastOutcome} IS NOT NULL),
+        '[]'::jsonb
+      )`,
       latestChatId: sql<string | null>`(
         ARRAY_AGG(${chats.id} ORDER BY ${chats.updatedAt} DESC, ${chats.createdAt} DESC)
         FILTER (WHERE ${chats.id} IS NOT NULL)
@@ -420,6 +426,7 @@ export async function getChatSummariesBySessionId(
       title: chats.title,
       modelId: chats.modelId,
       activeStreamId: chats.activeStreamId,
+      lastOutcome: chats.lastOutcome,
       lastAssistantMessageAt: chats.lastAssistantMessageAt,
       closedAt: chats.closedAt,
       createdAt: chats.createdAt,
@@ -512,6 +519,7 @@ export async function compareAndSetChatActiveStreamId(
   chatId: string,
   expectedStreamId: string | null,
   nextStreamId: string | null,
+  outcome?: ChatOutcome,
 ) {
   const activeStreamMatch =
     expectedStreamId === null
@@ -520,7 +528,10 @@ export async function compareAndSetChatActiveStreamId(
 
   const [updated] = await db
     .update(chats)
-    .set({ activeStreamId: nextStreamId })
+    .set({
+      activeStreamId: nextStreamId,
+      ...(outcome ? { lastOutcome: outcome } : {}),
+    })
     .where(and(eq(chats.id, chatId), activeStreamMatch))
     .returning({ id: chats.id });
 

@@ -11,6 +11,7 @@ import {
 
 import type { SkillMetadata } from "./skills/types";
 import { buildSystemPrompt } from "./system-prompt";
+import { getQualityReviewTools } from "./quality-review";
 import { getPlanningTools } from "./planning";
 import {
   askUserQuestionTool,
@@ -60,6 +61,7 @@ const callOptionsSchema = z.object({
   skills: z.custom<SkillMetadata[]>().optional(),
   github: z.custom<AgentGitHubContext>().optional(),
   planningMode: z.boolean().optional(),
+  qualityReviewMode: z.boolean().optional(),
   screenshotStore: z.custom<ScreenshotStore>().optional(),
 });
 
@@ -163,10 +165,11 @@ export function createOpenAgent<
         currentBranch: sandbox.currentBranch,
         customInstructions,
         environmentDetails: sandbox.environmentDetails,
-        skills: options.planningMode ? [] : skills,
+        skills: options.planningMode || options.qualityReviewMode ? [] : skills,
         modelId: mainSelection.id,
         githubToolsEnabled:
           !options.planningMode &&
+          !options.qualityReviewMode &&
           hasGitHubTools &&
           options.github !== undefined,
       });
@@ -175,9 +178,11 @@ export function createOpenAgent<
         ...settings,
         model: callModel,
         tools: addCacheControl({
-          tools: options.planningMode
-            ? getPlanningTools(settings.tools ?? tools)
-            : (settings.tools ?? tools),
+          tools: options.qualityReviewMode
+            ? getQualityReviewTools(settings.tools ?? tools)
+            : options.planningMode
+              ? getPlanningTools(settings.tools ?? tools)
+              : (settings.tools ?? tools),
           model: callModel,
         }),
         instructions,

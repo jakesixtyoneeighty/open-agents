@@ -1,4 +1,5 @@
 "use client";
+import { QualityReviewSummary } from "@/components/quality-review/quality-review-summary";
 import { TaskBriefSummary } from "@/components/task-brief/task-brief-summary";
 
 import { isReasoningUIPart, isToolUIPart } from "ai";
@@ -485,6 +486,11 @@ function SharedMessage({
         );
       }
 
+      if (p.type === "data-quality-review") {
+        return (
+          <QualityReviewSummary key={`${m.id}-${i}`} submission={p.data} />
+        );
+      }
       if (p.type === "data-task-brief") {
         return <TaskBriefSummary key={`${m.id}-${i}`} submission={p.data} />;
       }

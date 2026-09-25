@@ -76,8 +76,9 @@ const spies = {
   closeStream: mock((writable: WritableStream<UIMessageChunk>) =>
     writable.close(),
   ),
-  clearActiveStream: mock((_chatId?: unknown, _workflowRunId?: unknown) =>
-    Promise.resolve(),
+  clearActiveStream: mock(
+    (_chatId?: unknown, _workflowRunId?: unknown, _outcome?: unknown) =>
+      Promise.resolve(),
   ),
   sendFinish: mock(async (writable: WritableStream<UIMessageChunk>) => {
     const writer = writable.getWriter();
@@ -1229,6 +1230,11 @@ describe("runAgentWorkflow", () => {
     expect(spies.clearActiveStream).toHaveBeenCalledWith(
       "chat-1",
       "wrun_test-123",
+      expect.objectContaining({
+        status: "completed",
+        runId: "wrun_test-123",
+        chatId: "chat-1",
+      }),
     );
   });
 
@@ -1585,6 +1591,93 @@ describe("runAgentWorkflow", () => {
     expect(spies.runAutoCommitStep).not.toHaveBeenCalled();
   });
 
+  test("quality review enforces its tool mode and skips git automation", async () => {
+    await runAgentWorkflow(
+      makeOptions({
+        autoCommitEnabled: true,
+        autoCreatePrEnabled: true,
+        messages: [
+          {
+            id: "review-user",
+            role: "user",
+            parts: [
+              {
+                type: "data-quality-review",
+                data: { focus: "mobile", action: "review", scope: "checkout" },
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(spies.runAutoCommitStep).not.toHaveBeenCalled();
+    expect(spies.runAutoCreatePrStep).not.toHaveBeenCalled();
+    expect(agentCallOptions?.qualityReviewMode).toBe(true);
+    expect(agentCallOptions?.customInstructions).toContain(
+      "bounded, read-only mobile",
+    );
+  });
+
+  test("quality review caps the run even when a caller supplies a larger step limit", async () => {
+    agentFinishReason = "tool-calls";
+    await runAgentWorkflow(
+      makeOptions({
+        maxSteps: 100,
+        messages: [
+          {
+            id: "review-user",
+            role: "user",
+            parts: [
+              {
+                type: "data-quality-review",
+                data: { focus: "code", action: "review", scope: "lib/auth" },
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    const usageCalls = spies.recordWorkflowUsage.mock.calls as unknown[][];
+    const run = usageCalls[0]?.[5] as {
+      status: string;
+      stepTimings: unknown[];
+    };
+    expect(run.status).toBe("failed");
+    expect(run.stepTimings).toHaveLength(12);
+    expect(JSON.stringify(writtenChunks)).toContain("reached its review limit");
+  });
+
+  test("publishes needs-input instead of completion for an unanswered question", async () => {
+    agentFinishReason = "tool-calls";
+    agentAssistantParts = [
+      {
+        type: "tool-ask_user_question",
+        toolCallId: "question",
+        state: "input-available",
+        input: {},
+      },
+    ];
+    await runAgentWorkflow(makeOptions());
+    expect(spies.clearActiveStream).toHaveBeenCalledWith(
+      "chat-1",
+      "wrun_test-123",
+      expect.objectContaining({ status: "needs-input" }),
+    );
+  });
+
+  test("publishes failure on step exhaustion and does not auto-commit", async () => {
+    agentFinishReason = "tool-calls";
+    await runAgentWorkflow(
+      makeOptions({ maxSteps: 1, autoCommitEnabled: true }),
+    );
+    expect(spies.clearActiveStream).toHaveBeenCalledWith(
+      "chat-1",
+      "wrun_test-123",
+      expect.objectContaining({ status: "failed" }),
+    );
+    expect(spies.runAutoCommitStep).not.toHaveBeenCalled();
+  });
+
   test("still clears stream and sends finish even on step error", async () => {
     // Mock the agent to throw
     mock.module("@/app/config", () => ({
@@ -1606,6 +1699,10 @@ describe("runAgentWorkflow", () => {
     }
 
     // The finally block should still fire
-    expect(spies.clearActiveStream).toHaveBeenCalled();
+    expect(spies.clearActiveStream).toHaveBeenCalledWith(
+      "chat-1",
+      "wrun_test-123",
+      expect.objectContaining({ status: "failed" }),
+    );
   });
 });

@@ -10,11 +10,11 @@ Deviation (2026-09-24): increment 3 was skipped because it needs an infrastructu
 | 3 | Visual results gallery — implemented locally | Label desktop/mobile captures by page and run; show errors; compare before/after only when both exist. Captures go to private Vercel Blob and are listed on the task output; owner- and share-scoped image routes; cleanup on chat/session delete. Unit + fixture browser checks passed; live authenticated acceptance pending. |
 | 4 | Saved message drafts — implemented locally | Restore text to its originating chat after navigation/refresh; clear only after accepted submission. Per-chat localStorage draft (`lib/chat-draft-storage.ts`, `hooks/use-chat-draft.ts`); held until status reaches streaming/ready, restored to the composer on error. Unit + fixture browser checks passed; live authenticated acceptance pending. |
 | 5 | Separate closing from deleting — implemented locally | Closed tabs remain in history; permanent deletion stays explicit. `chats.closed_at` column (migration 0037); tab X closes, closed chats menu reopens or deletes with confirmation. Route + fixture browser checks passed; live authenticated acceptance pending. |
-| 6 | Accurate outcome alerts | Completed, stopped, failed, and needs-input states derive from authoritative outcomes. |
-| 7 | Focused quality passes | Bounded mobile/accessibility/code review produces findings before requested fixes. |
-| 8 | Diff review progress | Reviewed files and next-unreviewed navigation; edits invalidate reviewed status. |
-| 9 | Repository preferences | Owner-scoped model, skills, startup/check commands and instructions reused across sessions. |
-| 10 | Preview beside chat | Responsive widths, refresh and external fallback; preserve browser origin isolation. |
+| 6 | Accurate outcome alerts — implemented locally | Completed, stopped, failed, and needs-input states derive from authoritative outcomes. |
+| 7 | Focused quality passes — implemented locally | Bounded mobile/accessibility/code review produces findings before requested fixes. |
+| 8 | Diff review progress — user reports completed | Reviewed files and next-unreviewed navigation; edits invalidate reviewed status. |
+| 9 | Repository preferences — user reports completed | Owner-scoped model, skills, startup/check commands and instructions reused across sessions. |
+| 10 | Preview beside chat — in progress with user | Responsive widths, refresh and external fallback; preserve browser origin isolation. |
 
 Each increment must preserve session ownership checks, durable state, truthful verification claims, and existing in-progress work. Publishing/deployment is a separate step. No production changes are authorized by this roadmap alone.
 
@@ -84,3 +84,24 @@ Each increment must preserve session ownership checks, durable state, truthful v
   - Close/delete: closing (including the active tab) switched to another open chat with no dialog; the last tab had no close button; reopen and confirmed delete worked; the page stayed clickable after the dialog; no horizontal overflow at 390px.
   - The fixture caught one bug, which was fixed: the trash icon nested inside a menu item reopened the chat, because Radix selects items on pointer-up. Each row is now two sibling menu items.
 - Not yet exercised: live authenticated use against a real database, applying migration 0037 in a preview deployment, and multi-tab/multi-device draft behavior (drafts are per browser by design).
+
+
+### 6. Accurate outcome alerts — implemented locally
+
+- `chats.last_outcome` (migration 0038) records run ID, chat ID, status and completion time. Outcome persistence and releasing the active run share a compare-and-set update; stale runs cannot replace a newer run's outcome.
+- Completed, stopped, failed and needs-input alerts use persisted outcomes. Stream disappearance alone emits nothing. Abnormal provider endings and step exhaustion are failures; pending user tool interactions need input. Stop writes its outcome after cancellation succeeds. Resume cleanup uses compare-and-set and records confirmed failed/cancelled runs without guessing success from transport completion.
+- Alerts deduplicate by run ID, skip historical outcomes at mount and the currently active session, and navigate to the actual outcome's chat. They can detect short runs between polls and completion in one chat while another still runs. The latest outcome per chat is retained, not a full notification history.
+- Validation: full CI passed before starting increment 7; tests cover classification, stop/stream routes, workflow outcomes, and notification deduplication. Additional CAS tests cover the atomic update and stale-run refusal. Browser fixtures verified all four alert labels, the destination chat, and no alert on stream disappearance alone.
+- Pending: migration application and live authenticated workflow/notification acceptance. No deployment performed.
+
+### 7. Focused quality passes — implemented locally
+
+- A Quality pass control offers mobile, accessibility and code focus with a required, bounded scope. Reviews run on the existing agent; no separate agent or delegation tool is introduced.
+- Structured user snapshots keep review mode across follow-ups/reloads and are preserved through resend, model conversion, shared transcript and Markdown export. Starting a brief or quality pass replaces the previous mode.
+- Reviews allow source-reading tools and screenshots of available previews; project edits, shell, delegation, executable skills and Git automation are unavailable. The workflow enforces a maximum of 12 model steps. Instructions limit scope to 10 files, 2 pages, 4 captures and 5 evidence-backed findings; these counts are prompt limits, not separate tool counters.
+- Reports identify findings, inspected scope and unverified areas. Source-only checks must be labelled when no live preview is available. Exhaustion reports a partial review rather than success.
+- Request fixes requires a completed response and explicit fix scope; End review returns to ordinary chat. Failed submissions retain an exact retry request.
+- Validation: full CI and fixture browser checks (real controls with stubbed responses) cover review → findings → scoped fixes, failed send/retry, end review, mobile dialog at 390px without overflow, and no browser console errors. Unit/workflow tests cover API validation, mode persistence, the fail-closed tool allowlist, no Git automation, and the enforced step cap.
+- Pending: live authenticated model review, real preview screenshots, and fixes against a sandbox. No deployment performed.
+
+Coordination: the user reported increments 8 and 9 complete and is implementing 10. Those implementations were not revalidated as part of increments 6 and 7.

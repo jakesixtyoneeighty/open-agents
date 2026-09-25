@@ -309,6 +309,7 @@ describe("clearActiveStream", () => {
       "chat-1",
       "wrun_abc",
       null,
+      undefined,
     );
   });
 
@@ -324,9 +325,9 @@ describe("clearActiveStream", () => {
     const compareAndSetCalls = spies.compareAndSetChatActiveStreamId.mock
       .calls as unknown[][];
     expect(compareAndSetCalls).toEqual([
-      ["chat-1", "wrun_abc", null],
-      ["chat-1", "wrun_abc", null],
-      ["chat-1", "wrun_abc", null],
+      ["chat-1", "wrun_abc", null, undefined],
+      ["chat-1", "wrun_abc", null, undefined],
+      ["chat-1", "wrun_abc", null, undefined],
     ]);
   });
 

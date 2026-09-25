@@ -1,5 +1,6 @@
 import { isReasoningUIPart, isToolUIPart } from "ai";
 import type { WebAgentUIMessage } from "@/app/types";
+import { qualityReviewMessageText } from "@/lib/quality-review";
 import { formatTaskBrief } from "@/lib/task-brief";
 import { getChatById, getChatMessages } from "@/lib/db/sessions";
 import {
@@ -70,6 +71,9 @@ function getMessageBody(message: WebAgentUIMessage): string {
       continue;
     }
 
+    if (part.type === "data-quality-review") {
+      blocks.push(qualityReviewMessageText(part.data));
+    }
     if (part.type === "data-task-brief") {
       blocks.push(formatTaskBrief(part.data.brief));
     }

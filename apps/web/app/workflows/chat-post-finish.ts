@@ -1,3 +1,4 @@
+import type { ChatOutcome } from "@/lib/chat/outcome";
 import { isToolUIPart, type LanguageModelUsage, type UIMessageChunk } from "ai";
 import type { SandboxState, Sandbox } from "@open-agents/sandbox";
 import type { WebAgentUIMessage } from "@/app/types";
@@ -243,6 +244,7 @@ const ACTIVE_STREAM_CLEAR_RETRY_DELAY_MS = 50;
 export async function clearActiveStream(
   chatId: string,
   workflowRunId: string,
+  outcome?: ChatOutcome,
 ): Promise<void> {
   "use step";
 
@@ -254,7 +256,12 @@ export async function clearActiveStream(
     try {
       // Only clear if this workflow's run ID is still the active one.
       // Prevents a late-finishing workflow from clearing a newer workflow's ID.
-      await compareAndSetChatActiveStreamId(chatId, workflowRunId, null);
+      await compareAndSetChatActiveStreamId(
+        chatId,
+        workflowRunId,
+        null,
+        outcome,
+      );
       return;
     } catch (error) {
       if (attempt === ACTIVE_STREAM_CLEAR_MAX_ATTEMPTS) {

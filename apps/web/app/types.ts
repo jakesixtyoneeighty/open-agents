@@ -7,6 +7,7 @@ import type {
   UIMessage,
 } from "ai";
 import type { webAgent } from "./config";
+import type { QualityReviewSubmission } from "@/lib/quality-review";
 import type { TaskBriefSubmission } from "@/lib/task-brief";
 
 export type WebAgent = typeof webAgent;
@@ -68,6 +69,7 @@ export type WebAgentWorkspaceStatusData = {
 
 export type WebAgentDataParts = {
   "task-brief": TaskBriefSubmission;
+  "quality-review": QualityReviewSubmission;
   commit: WebAgentCommitData;
   pr: WebAgentPrData;
   snippet: WebAgentSnippetData;

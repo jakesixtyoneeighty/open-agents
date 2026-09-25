@@ -3,6 +3,7 @@
 import { useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import useSWR, { useSWRConfig } from "swr";
+import type { ChatOutcome } from "@/lib/chat/outcome";
 import type { Chat, Session } from "@/lib/db/schema";
 import type { VercelProjectSelection } from "@/lib/vercel/types";
 import { fetcher } from "@/lib/swr";
@@ -23,6 +24,7 @@ export type SessionWithUnread = Pick<
 > & {
   hasUnread: boolean;
   hasStreaming: boolean;
+  chatOutcomes?: ChatOutcome[];
   latestChatId: string | null;
   lastActivityAt: Session["createdAt"];
 };
@@ -81,6 +83,7 @@ function mergeSessionWithSummary(
     createdAt: updatedSession.createdAt,
     hasUnread: session.hasUnread,
     hasStreaming: session.hasStreaming,
+    chatOutcomes: session.chatOutcomes,
     latestChatId: session.latestChatId,
     lastActivityAt: session.lastActivityAt,
   };

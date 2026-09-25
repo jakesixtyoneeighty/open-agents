@@ -117,3 +117,8 @@ Hard-won knowledge from building this codebase. When you make a mistake or disco
 - GitHub fork creation can take longer than a few seconds to become pushable; PR fallback should retry fork push on transient `repository not found` errors instead of failing immediately.
 - Git push failures from Vercel sandboxes can return empty output even when auth/write is denied; PR fallback logic should not rely only on matching "permission" text before attempting fork fallback.
 - When the GitHub App lacks push access (e.g. repo removed from installation scope), fail fast with a 403 directing users to /settings/connections rather than silently forking.
+
+## Quality passes and outcome alerts
+
+- Persist a chat outcome in the same compare-and-set update that clears its owning run. Stream disappearance, workflow transport completion, and provider length limits do not prove successful agent completion. Keep previous outcomes during a new run so polling can observe runs that finish between polls.
+- Review controls belong in a colocated component; preserve structured user mode snapshots through resend, model conversion, sharing, and export. Enforce the review tool allowlist and step cap server-side, and disable Git automation during review. File/page counts are prompt scope limits; the workflow step cap is enforced in code.

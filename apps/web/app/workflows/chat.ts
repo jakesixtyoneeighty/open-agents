@@ -50,7 +50,10 @@ import type {
 } from "@/lib/db/workflow-runs";
 import { resolveChatModelSelection } from "../api/chat/_lib/model-selection";
 import { resolveChatSandboxRuntime } from "./chat-sandbox-runtime";
+import { resolveQualityReview } from "./quality-review";
+import { qualityReviewSubmissionSchema } from "@/lib/quality-review";
 import { resolveTaskPlanning } from "./task-planning";
+import { resolveChatOutcome } from "@/lib/chat/outcome";
 import { taskBriefSubmissionSchema } from "@/lib/task-brief";
 
 type Options = {
@@ -114,6 +117,15 @@ const convertMessages = async (
       ignoreIncompleteToolCalls: true,
       tools: webAgent.tools,
       convertDataPart: (part) => {
+        if (part.type === "data-quality-review") {
+          return {
+            type: "text",
+            text: JSON.stringify({
+              type: "quality-review",
+              ...qualityReviewSubmissionSchema.parse(part.data),
+            }),
+          };
+        }
         if (part.type === "data-task-brief") {
           return {
             type: "text",
@@ -690,14 +702,24 @@ export async function runAgentWorkflow(options: Options) {
     };
 
     const planning = await resolveTaskPlanning(options.messages);
+    const qualityReview = await resolveQualityReview(options.messages);
+    const maxSteps =
+      qualityReview.maxSteps === undefined
+        ? options.maxSteps
+        : Math.min(
+            options.maxSteps ?? qualityReview.maxSteps,
+            qualityReview.maxSteps,
+          );
     const agentOptions: OpenAgentCallOptions = {
       ...modelRuntime.agentOptions,
       ...options.agentOptions,
       planningMode: planning.planningMode,
+      qualityReviewMode: qualityReview.reviewing,
       customInstructions: [
         options.agentOptions?.customInstructions ??
           modelRuntime.agentOptions.customInstructions,
         planning.instructions,
+        qualityReview.instructions,
       ]
         .filter(Boolean)
         .join("\n\n"),
@@ -711,11 +733,7 @@ export async function runAgentWorkflow(options: Options) {
     };
     sandboxState = runtime.sandboxState;
 
-    for (
-      let step = 0;
-      options.maxSteps === undefined || step < options.maxSteps;
-      step++
-    ) {
+    for (let step = 0; maxSteps === undefined || step < maxSteps; step++) {
       let result: Awaited<ReturnType<typeof runAgentStep>>;
 
       try {
@@ -766,10 +784,17 @@ export async function runAgentWorkflow(options: Options) {
         break;
       }
 
-      if (options.maxSteps !== undefined && step + 1 >= options.maxSteps) {
+      if (maxSteps !== undefined && step + 1 >= maxSteps) {
         exhaustedMaxSteps = true;
         break;
       }
+    }
+
+    if (exhaustedMaxSteps && qualityReview.reviewing) {
+      const text =
+        "This quality pass reached its review limit. Findings so far are partial; narrow the scope to continue. No fixes were applied.";
+      pendingAssistantResponse.parts.push({ type: "text", text });
+      await sendTextMessage(writable, "review-limit", text);
     }
 
     if (sandboxState) {
@@ -795,10 +820,7 @@ export async function runAgentWorkflow(options: Options) {
         : []),
     ]);
 
-    const finishedNaturally =
-      !wasAborted &&
-      finalFinishReason !== undefined &&
-      finalFinishReason !== "tool-calls";
+    const finishedNaturally = !wasAborted && finalFinishReason === "stop";
     const commitPartId = `${assistantId}:commit`;
     const prPartId = `${assistantId}:pr`;
     const repoOwner = runtime.repoOwner;
@@ -810,6 +832,7 @@ export async function runAgentWorkflow(options: Options) {
 
     const canAutoCommit =
       !planning.planningMode &&
+      !qualityReview.reviewing &&
       finishedNaturally &&
       (options.autoCommitEnabled ?? modelRuntime.autoCommitEnabled) &&
       sandboxState != null &&
@@ -927,7 +950,24 @@ export async function runAgentWorkflow(options: Options) {
     }
 
     await Promise.all([
-      clearActiveStream(options.chatId, workflowRunId),
+      clearActiveStream(options.chatId, workflowRunId, {
+        runId: workflowRunId,
+        chatId: options.chatId,
+        status: resolveChatOutcome({
+          aborted: wasAborted,
+          failed: pendingAssistantResponse.parts.some(
+            (part) =>
+              (part.type === "data-commit" || part.type === "data-pr") &&
+              part.data.status === "error",
+          ),
+          exhausted: exhaustedMaxSteps,
+          needsInput: shouldPauseForToolInteraction(
+            pendingAssistantResponse.parts,
+          ),
+          finishReason: finalFinishReason,
+        }),
+        finishedAt: new Date().toISOString(),
+      }),
       sendFinish(writable).then(() => closeStream(writable)),
       ...(sandboxState && shouldRefreshCachedDiff
         ? [refreshDiffCache(options.sessionId, sandboxState)]
@@ -959,7 +999,20 @@ export async function runAgentWorkflow(options: Options) {
       // so the chat is never permanently marked as streaming.
       if (!streamClosed) {
         await Promise.all([
-          clearActiveStream(options.chatId, workflowRunId),
+          clearActiveStream(options.chatId, workflowRunId, {
+            runId: workflowRunId,
+            chatId: options.chatId,
+            status: resolveChatOutcome({
+              aborted: wasAborted,
+              failed: workflowStatus === "failed",
+              exhausted: exhaustedMaxSteps,
+              needsInput: shouldPauseForToolInteraction(
+                pendingAssistantResponse.parts,
+              ),
+              finishReason: finalFinishReason,
+            }),
+            finishedAt: new Date().toISOString(),
+          }),
           sendFinish(writable).then(() => closeStream(writable)),
         ]);
       }

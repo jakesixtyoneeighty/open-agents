@@ -1,4 +1,5 @@
 import type { WebAgentUIMessage } from "@/app/types";
+import { qualityReviewSubmissionSchema } from "@/lib/quality-review";
 import { taskBriefSubmissionSchema } from "@/lib/task-brief";
 
 export interface ChatRequestBody {
@@ -53,7 +54,22 @@ export async function parseChatRequestBody(
         };
       }
       let briefCount = 0;
+      let reviewCount = 0;
       for (const part of message.parts) {
+        if (part?.type === "data-quality-review") {
+          reviewCount++;
+          const parsed = qualityReviewSubmissionSchema.safeParse(part.data);
+          if (message.role !== "user" || reviewCount > 1 || !parsed.success) {
+            return {
+              ok: false,
+              response: Response.json(
+                { error: "Invalid quality review" },
+                { status: 400 },
+              ),
+            };
+          }
+          part.data = parsed.data;
+        }
         if (part?.type !== "data-task-brief") continue;
         briefCount++;
         const parsed = taskBriefSubmissionSchema.safeParse(part.data);
@@ -67,6 +83,15 @@ export async function parseChatRequestBody(
           };
         }
         part.data = parsed.data;
+      }
+      if (briefCount && reviewCount) {
+        return {
+          ok: false,
+          response: Response.json(
+            { error: "Choose a task brief or quality review" },
+            { status: 400 },
+          ),
+        };
       }
     }
     return { ok: true, body };
