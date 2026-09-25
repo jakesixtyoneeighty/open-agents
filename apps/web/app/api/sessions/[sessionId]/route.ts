@@ -5,6 +5,7 @@ import {
   updateSession,
 } from "@/lib/db/sessions";
 import { archiveSession } from "@/lib/sandbox/archive-session";
+import { deleteAllSessionScreenshots } from "@/lib/screenshots/cleanup";
 import { hasRuntimeSandboxState } from "@/lib/sandbox/utils";
 import { getServerSession } from "@/lib/session/get-server-session";
 
@@ -141,5 +142,6 @@ export async function DELETE(
   }
 
   await deleteSession(sessionId);
+  after(() => deleteAllSessionScreenshots(sessionId));
   return Response.json({ success: true });
 }

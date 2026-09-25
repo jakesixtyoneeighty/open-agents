@@ -25,6 +25,7 @@ import { AssistantMessageGroups } from "@/components/assistant-message-groups";
 import { SnippetChip } from "@/components/snippet-chip";
 import { ThinkingBlock } from "@/components/thinking-block";
 import { ToolCall } from "@/components/tool-call";
+import { ScreenshotSourceProvider } from "@/components/tool-call/screenshot-gallery/screenshot-source-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import type { Chat } from "@/lib/db/schema";
@@ -123,186 +124,188 @@ export function SharedChatContent({
     repoUrl && session.prNumber ? `${repoUrl}/pull/${session.prNumber}` : null;
 
   return (
-    <div className="flex min-h-screen flex-col overflow-x-hidden bg-background text-foreground">
-      {/* Header */}
-      <header className="border-b border-border bg-background">
-        <div className="mx-auto max-w-4xl px-4 py-4">
-          {/* Title + meta row: inline on desktop */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            {/* Left: title + repo */}
-            <div className="min-w-0 flex-1">
-              <h1 className="text-lg font-semibold leading-tight text-foreground">
-                {session.title}
-              </h1>
+    <ScreenshotSourceProvider source={{ shareId }}>
+      <div className="flex min-h-screen flex-col overflow-x-hidden bg-background text-foreground">
+        {/* Header */}
+        <header className="border-b border-border bg-background">
+          <div className="mx-auto max-w-4xl px-4 py-4">
+            {/* Title + meta row: inline on desktop */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              {/* Left: title + repo */}
+              <div className="min-w-0 flex-1">
+                <h1 className="text-lg font-semibold leading-tight text-foreground">
+                  {session.title}
+                </h1>
 
-              {/* Inline meta: repo · branch · PR · model — all on one line on desktop */}
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                {hasRepo && (
-                  <>
-                    <div className="inline-flex items-center gap-1.5 text-muted-foreground">
-                      <GitBranch className="h-3.5 w-3.5" />
-                      {repoUrl ? (
-                        /* oxlint-disable-next-line nextjs/no-html-link-for-pages */
-                        <a
-                          href={repoUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-medium text-foreground hover:underline"
-                        >
-                          {session.repoOwner}/{session.repoName}
-                        </a>
-                      ) : (
-                        <span className="font-medium text-foreground">
-                          {session.repoOwner}/{session.repoName}
-                        </span>
-                      )}
-                      {session.branch && (
-                        <>
-                          <span className="text-muted-foreground/40">/</span>
-                          <span className="text-muted-foreground">
-                            {session.branch}
+                {/* Inline meta: repo · branch · PR · model — all on one line on desktop */}
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                  {hasRepo && (
+                    <>
+                      <div className="inline-flex items-center gap-1.5 text-muted-foreground">
+                        <GitBranch className="h-3.5 w-3.5" />
+                        {repoUrl ? (
+                          /* oxlint-disable-next-line nextjs/no-html-link-for-pages */
+                          <a
+                            href={repoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-foreground hover:underline"
+                          >
+                            {session.repoOwner}/{session.repoName}
+                          </a>
+                        ) : (
+                          <span className="font-medium text-foreground">
+                            {session.repoOwner}/{session.repoName}
                           </span>
+                        )}
+                        {session.branch && (
+                          <>
+                            <span className="text-muted-foreground/40">/</span>
+                            <span className="text-muted-foreground">
+                              {session.branch}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      {prUrl && session.prNumber && (
+                        <>
+                          <span className="text-muted-foreground/40">·</span>
+                          {/* oxlint-disable-next-line nextjs/no-html-link-for-pages */}
+                          <a
+                            href={prUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-muted-foreground transition-colors hover:text-foreground"
+                          >
+                            <GitPullRequest className="h-3.5 w-3.5" />
+                            <span className="font-medium">
+                              #{session.prNumber}
+                            </span>
+                            {session.prStatus && (
+                              <span
+                                className={cn(
+                                  "rounded-full px-1.5 py-0.5 text-[10px] font-medium leading-none",
+                                  session.prStatus === "open" &&
+                                    "bg-green-500/10 text-green-600 dark:text-green-400",
+                                  session.prStatus === "merged" &&
+                                    "bg-purple-500/10 text-purple-600 dark:text-purple-400",
+                                  session.prStatus === "closed" &&
+                                    "bg-red-500/10 text-red-600 dark:text-red-400",
+                                )}
+                              >
+                                {session.prStatus}
+                              </span>
+                            )}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
                         </>
                       )}
-                    </div>
-                    {prUrl && session.prNumber && (
-                      <>
+                      {modelId && (
                         <span className="text-muted-foreground/40">·</span>
-                        {/* oxlint-disable-next-line nextjs/no-html-link-for-pages */}
-                        <a
-                          href={prUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-muted-foreground transition-colors hover:text-foreground"
-                        >
-                          <GitPullRequest className="h-3.5 w-3.5" />
-                          <span className="font-medium">
-                            #{session.prNumber}
-                          </span>
-                          {session.prStatus && (
-                            <span
-                              className={cn(
-                                "rounded-full px-1.5 py-0.5 text-[10px] font-medium leading-none",
-                                session.prStatus === "open" &&
-                                  "bg-green-500/10 text-green-600 dark:text-green-400",
-                                session.prStatus === "merged" &&
-                                  "bg-purple-500/10 text-purple-600 dark:text-purple-400",
-                                session.prStatus === "closed" &&
-                                  "bg-red-500/10 text-red-600 dark:text-red-400",
-                              )}
-                            >
-                              {session.prStatus}
-                            </span>
-                          )}
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      </>
-                    )}
-                    {modelId && (
-                      <span className="text-muted-foreground/40">·</span>
-                    )}
-                  </>
-                )}
-                {modelId && (
-                  <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                    <Bot className="h-3 w-3" />
-                    <span className="font-medium text-foreground">
-                      {displayModelName(modelId, modelName)}
-                    </span>
-                    {displayProviderName(modelId) && (
-                      <span className="text-muted-foreground/60">
-                        · {displayProviderName(modelId)}
-                      </span>
-                    )}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Right: shared by user */}
-            {sharedBy && (
-              <div className="flex shrink-0 items-center gap-2">
-                <Avatar size="sm">
-                  {sharedBy.avatarUrl && (
-                    <AvatarImage
-                      src={sharedBy.avatarUrl}
-                      alt={sharedBy.name ?? sharedBy.username}
-                    />
+                      )}
+                    </>
                   )}
-                  <AvatarFallback>
-                    {(sharedBy.name ?? sharedBy.username)
-                      .charAt(0)
-                      .toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="text-sm text-muted-foreground">
-                  Shared by{" "}
-                  <span className="font-medium text-foreground">
-                    {sharedBy.name ?? sharedBy.username}
-                  </span>
-                </span>
+                  {modelId && (
+                    <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                      <Bot className="h-3 w-3" />
+                      <span className="font-medium text-foreground">
+                        {displayModelName(modelId, modelName)}
+                      </span>
+                      {displayProviderName(modelId) && (
+                        <span className="text-muted-foreground/60">
+                          · {displayProviderName(modelId)}
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
-        </div>
-      </header>
 
-      {/* Messages */}
-      <div className="min-w-0 flex-1">
-        <div className="mx-auto max-w-4xl overflow-hidden px-4 py-8">
-          <div className="space-y-4">
-            {/* Owner banner — between header and messages */}
-            {ownerSessionHref && (
-              <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/40 p-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground">
-                    You own this shared chat
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Open the original session to keep working from your private
-                    view.
-                  </p>
+              {/* Right: shared by user */}
+              {sharedBy && (
+                <div className="flex shrink-0 items-center gap-2">
+                  <Avatar size="sm">
+                    {sharedBy.avatarUrl && (
+                      <AvatarImage
+                        src={sharedBy.avatarUrl}
+                        alt={sharedBy.name ?? sharedBy.username}
+                      />
+                    )}
+                    <AvatarFallback>
+                      {(sharedBy.name ?? sharedBy.username)
+                        .charAt(0)
+                        .toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm text-muted-foreground">
+                    Shared by{" "}
+                    <span className="font-medium text-foreground">
+                      {sharedBy.name ?? sharedBy.username}
+                    </span>
+                  </span>
                 </div>
-                <Button size="sm" asChild className="shrink-0">
-                  <Link href={ownerSessionHref}>
-                    Open session
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </Link>
-                </Button>
-              </div>
-            )}
-            {chats.map(({ chat, messagesWithTiming }) => (
-              <div key={chat.id}>
-                {chats.length > 1 && (
-                  <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
-                    <div className="h-px flex-1 bg-border" />
-                    <span>{chat.title}</span>
-                    <div className="h-px flex-1 bg-border" />
+              )}
+            </div>
+          </div>
+        </header>
+
+        {/* Messages */}
+        <div className="min-w-0 flex-1">
+          <div className="mx-auto max-w-4xl overflow-hidden px-4 py-8">
+            <div className="space-y-4">
+              {/* Owner banner — between header and messages */}
+              {ownerSessionHref && (
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/40 p-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground">
+                      You own this shared chat
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Open the original session to keep working from your
+                      private view.
+                    </p>
                   </div>
-                )}
-                <div className="space-y-4">
-                  {messagesWithTiming.map(({ message: m, durationMs }) => (
-                    <SharedMessage
-                      key={m.id}
-                      message={m}
-                      durationMs={durationMs}
-                      isStreaming={false}
-                      lastUserMessageSentAt={lastUserMessageSentAt}
-                    />
-                  ))}
+                  <Button size="sm" asChild className="shrink-0">
+                    <Link href={ownerSessionHref}>
+                      Open session
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </Button>
                 </div>
-              </div>
-            ))}
-            {/* Inline streaming status indicator */}
-            <SharedChatStatus
-              shareId={shareId}
-              initialIsStreaming={isStreaming}
-              initialLastUserMessageSentAt={lastUserMessageSentAt}
-            />
+              )}
+              {chats.map(({ chat, messagesWithTiming }) => (
+                <div key={chat.id}>
+                  {chats.length > 1 && (
+                    <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
+                      <div className="h-px flex-1 bg-border" />
+                      <span>{chat.title}</span>
+                      <div className="h-px flex-1 bg-border" />
+                    </div>
+                  )}
+                  <div className="space-y-4">
+                    {messagesWithTiming.map(({ message: m, durationMs }) => (
+                      <SharedMessage
+                        key={m.id}
+                        message={m}
+                        durationMs={durationMs}
+                        isStreaming={false}
+                        lastUserMessageSentAt={lastUserMessageSentAt}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {/* Inline streaming status indicator */}
+              <SharedChatStatus
+                shareId={shareId}
+                initialIsStreaming={isStreaming}
+                initialLastUserMessageSentAt={lastUserMessageSentAt}
+              />
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </ScreenshotSourceProvider>
   );
 }
 

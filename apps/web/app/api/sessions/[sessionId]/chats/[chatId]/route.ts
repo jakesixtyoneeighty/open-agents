@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import {
   requireAuthenticatedUser,
   requireOwnedSessionChat,
@@ -10,6 +11,10 @@ import {
   setChatClosed,
   updateChat,
 } from "@/lib/db/sessions";
+import {
+  deleteChatScreenshots,
+  getChatOnlyScreenshotIds,
+} from "@/lib/screenshots/cleanup";
 
 type RouteContext = {
   params: Promise<{ sessionId: string; chatId: string }>;
@@ -158,6 +163,13 @@ export async function DELETE(_req: Request, context: RouteContext) {
     );
   }
 
+  const orphanedScreenshotIds = await getChatOnlyScreenshotIds(
+    sessionId,
+    chatId,
+  );
   await deleteChat(chatId);
+  if (orphanedScreenshotIds.length > 0) {
+    after(() => deleteChatScreenshots(sessionId, orphanedScreenshotIds));
+  }
   return Response.json({ success: true });
 }

@@ -34,6 +34,7 @@ export {
   type AskUserQuestionOutput,
   type AskUserQuestionToolUIPart,
 } from "./tools/ask-user-question";
+export type { ScreenshotStore, TaskScreenshot } from "./tools/screenshot-store";
 export type { SkillToolInput } from "./tools/skill";
 export { getSandbox } from "./tools/utils";
 // Tool exports

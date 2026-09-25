@@ -14,6 +14,7 @@ import {
   SUBAGENT_STEP_LIMIT,
   SUBAGENT_WORKING_DIR,
 } from "./constants";
+import type { ScreenshotStore } from "../tools/screenshot-store";
 
 const EXPLORER_REMINDER = `## REMINDER
 - You CANNOT ask questions - no one will respond
@@ -71,6 +72,7 @@ const callOptionsSchema = z.object({
     .custom<SandboxExecutionContext["sandbox"]>()
     .describe("Sandbox for file system and shell operations"),
   model: z.custom<LanguageModel>().describe("Language model for this subagent"),
+  screenshotStore: z.custom<ScreenshotStore>().optional(),
 });
 
 export type ExplorerCallOptions = z.infer<typeof callOptionsSchema>;

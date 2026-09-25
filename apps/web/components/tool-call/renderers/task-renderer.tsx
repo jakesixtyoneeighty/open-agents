@@ -26,6 +26,7 @@ import {
 } from "@/app/lib/render-tool";
 import type { WebAgentUIToolPart } from "@/app/types";
 import { DEFAULT_WORKING_DIRECTORY } from "@/lib/sandbox/config";
+import { ScreenshotGallery } from "../screenshot-gallery/screenshot-gallery";
 import { ToolLayout } from "../tool-layout";
 import { BashRenderer } from "./bash-renderer";
 import { ReadRenderer } from "./read-renderer";
@@ -426,6 +427,8 @@ export function TaskRenderer({
     </div>
   ) : undefined;
 
+  const screenshots = output?.screenshots ?? [];
+
   const approvalWarning =
     taskApprovalRequested && subagentType === "executor" ? (
       <div className="mt-2 pl-5 text-sm text-yellow-500">
@@ -450,6 +453,9 @@ export function TaskRenderer({
       defaultExpanded={!isComplete}
     >
       {approvalWarning}
+      {screenshots.length > 0 && (
+        <ScreenshotGallery screenshots={screenshots} />
+      )}
     </ToolLayout>
   );
 }

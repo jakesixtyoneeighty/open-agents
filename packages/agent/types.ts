@@ -3,6 +3,7 @@ import type { LanguageModel } from "ai";
 import { z } from "zod";
 import type { AgentGitHubContext, AgentSandboxContext } from "./open-agent";
 import type { SkillMetadata } from "./skills/types";
+import type { ScreenshotStore } from "./tools/screenshot-store";
 
 export const todoStatusSchema = z.enum(["pending", "in_progress", "completed"]);
 export type TodoStatus = z.infer<typeof todoStatusSchema>;
@@ -22,6 +23,7 @@ export interface AgentContext {
   model: LanguageModel;
   subagentModel?: LanguageModel;
   github?: AgentGitHubContext;
+  screenshotStore?: ScreenshotStore;
 }
 
 export interface SandboxExecutionContext {

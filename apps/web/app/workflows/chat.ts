@@ -1007,6 +1007,7 @@ const runAgentStep = async (
 
   const stepStartedAt = new Date();
   const { webAgent } = await import("@/app/config");
+  const { createScreenshotStore } = await import("@/lib/screenshots/storage");
 
   const abortController = new AbortController();
   const stopMonitor = startStopMonitor(workflowRunId, abortController);
@@ -1034,7 +1035,12 @@ const runAgentStep = async (
 
     const result = await webAgent.stream({
       messages,
-      options: agentOptions,
+      // The screenshot store holds live clients, so it is attached here inside
+      // the step rather than carried in the serialized workflow options.
+      options: {
+        ...agentOptions,
+        screenshotStore: createScreenshotStore(sessionId),
+      },
       abortSignal: abortController.signal,
     });
 

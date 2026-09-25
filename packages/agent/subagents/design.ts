@@ -21,6 +21,7 @@ import {
   SUBAGENT_VALIDATE_RULES,
   SUBAGENT_WORKING_DIR,
 } from "./constants";
+import type { ScreenshotStore } from "../tools/screenshot-store";
 
 const DESIGN_SYSTEM_PROMPT = `You are a design agent — a specialized subagent that art-directs and builds distinctive, production-grade frontend interfaces. You work from a clear visual thesis and a locked design grammar, avoid template and component-library defaults, and implement real working code.
 
@@ -74,6 +75,7 @@ const callOptionsSchema = z.object({
     .custom<SandboxExecutionContext["sandbox"]>()
     .describe("Sandbox for file system and shell operations"),
   model: z.custom<LanguageModel>().describe("Language model for this subagent"),
+  screenshotStore: z.custom<ScreenshotStore>().optional(),
 });
 
 export type DesignCallOptions = z.infer<typeof callOptionsSchema>;
@@ -124,6 +126,7 @@ ${SUBAGENT_REMINDER}`,
       experimental_context: {
         sandbox,
         model,
+        screenshotStore: options.screenshotStore,
       },
     };
   },

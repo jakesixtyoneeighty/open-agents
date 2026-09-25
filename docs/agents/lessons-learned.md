@@ -20,6 +20,8 @@ Hard-won knowledge from building this codebase. When you make a mistake or disco
 - Node 24's built-in TypeScript support uses native ESM resolution and ignores tsconfig path aliases, so utility-script dependency chains need explicit `.ts` extensions and relative imports.
 - `bunx @vercel/config validate` executes the CLI under Node via its shebang and cannot parse TypeScript-style `vercel.ts` imports; use `bunx --bun @vercel/config validate` (or `bun node_modules/@vercel/config/dist/cli.js validate`) for reliable local validation.
 - Successful Vercel CLI auth (`vercel whoami`, team/project REST APIs, `.vercel` linking) does **not** guarantee Workflow observability access. `workflow inspect ... --backend vercel` can still fail with `401 {"error":{"code":"unauthorized","message":"You are not allowed to access this endpoint."}}` when the user/token lacks the Vercel product permission documented as `Vercel Workflow` (and possibly related Observability access), even if `WORKFLOW_VERCEL_AUTH_TOKEN` is passed explicitly from the Vercel CLI auth file.
+- Agent call options reach tools via `experimental_context`, but workflow `"use step"` arguments are serialized. Attach anything holding live clients or functions (for example the `ScreenshotStore`) inside the step, not in the options passed between steps.
+- If an AI SDK `tool()` with an async-generator `execute` fails with a vague "No overload matches this call", annotate the generator return type (e.g. `AsyncGenerator<TaskToolOutput>`); inference of the yield union is the usual culprit.
 
 ## Next.js
 
@@ -30,6 +32,7 @@ Hard-won knowledge from building this codebase. When you make a mistake or disco
 - In this codebase's Next.js version, `revalidateTag` must be called with a second argument (for example `{ expire: 0 }`); single-argument calls fail typecheck.
 - For Workflow SDK discovery in Next.js, ensure workflow files live in scanned directories (for this app, `app/`), otherwise manifests can show steps but `0 workflows` and `start()` will not run durable workflows.
 - Server-side optimistic chat route lookup must allow realistic persistence latency (multi-second retry window), otherwise `/sessions/[sessionId]/chats/[chatId]` can redirect away before chat creation finishes.
+- A client `<img>` inside an SSR-rendered component can fail to load before hydration, and then `onError` never fires. Also check `img.complete && img.naturalWidth === 0` in a ref callback to catch the failure.
 
 ## Sandbox Lifecycle
 

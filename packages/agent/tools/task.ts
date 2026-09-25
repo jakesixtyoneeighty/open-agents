@@ -12,6 +12,12 @@ import {
 } from "../subagents/registry";
 import { SUBAGENT_STEP_LIMIT } from "../subagents/constants";
 import { sumLanguageModelUsage } from "../usage";
+import {
+  getScreenshotStore,
+  type TaskScreenshot,
+  taskScreenshotSchema,
+} from "./screenshot-store";
+import { toTaskScreenshot } from "./task-screenshots";
 import { getSandboxContext, getSubagentModel } from "./utils";
 
 const subagentTypeSchema = z.enum(SUBAGENT_TYPES);
@@ -82,6 +88,7 @@ export const taskOutputSchema = z.object({
   modelId: z.string().optional(),
   final: z.custom<ModelMessage[]>().optional(),
   usage: z.custom<LanguageModelUsage>().optional(),
+  screenshots: z.array(taskScreenshotSchema).optional(),
 });
 
 export type TaskToolOutput = z.infer<typeof taskOutputSchema>;
@@ -122,7 +129,7 @@ IMPORTANT:
   execute: async function* (
     { subagentType, task, instructions },
     { experimental_context, abortSignal },
-  ) {
+  ): AsyncGenerator<TaskToolOutput> {
     const sandboxContext = getSandboxContext(experimental_context, "task");
     const { agent: subagent, model: defaultModel } =
       SUBAGENT_REGISTRY[subagentType];
@@ -137,6 +144,7 @@ IMPORTANT:
         instructions,
         sandbox: sandboxContext.sandbox,
         model,
+        screenshotStore: getScreenshotStore(experimental_context),
       },
       abortSignal,
     });
@@ -145,6 +153,7 @@ IMPORTANT:
     let toolCallCount = 0;
     let pending: TaskPendingToolCall | undefined;
     let usage: LanguageModelUsage | undefined;
+    const screenshots: TaskScreenshot[] = [];
 
     // Emit an initial state so UIs can show elapsed time from a stable timestamp.
     yield { toolCallCount, startedAt, modelId: subagentModelId };
@@ -159,7 +168,23 @@ IMPORTANT:
           usage,
           startedAt,
           modelId: subagentModelId,
+          ...(screenshots.length > 0 ? { screenshots: [...screenshots] } : {}),
         };
+      }
+
+      if (part.type === "tool-result" || part.type === "tool-error") {
+        const screenshot = toTaskScreenshot(part, Date.now());
+        if (screenshot) {
+          screenshots.push(screenshot);
+          yield {
+            pending,
+            toolCallCount,
+            usage,
+            startedAt,
+            modelId: subagentModelId,
+            screenshots: [...screenshots],
+          };
+        }
       }
 
       if (part.type === "finish-step") {
@@ -172,6 +197,7 @@ IMPORTANT:
           usage,
           startedAt,
           modelId: subagentModelId,
+          ...(screenshots.length > 0 ? { screenshots: [...screenshots] } : {}),
         };
       }
     }
@@ -184,6 +210,7 @@ IMPORTANT:
       usage: finalUsage,
       startedAt,
       modelId: subagentModelId,
+      ...(screenshots.length > 0 ? { screenshots } : {}),
     };
   },
   toModelOutput: ({ output: { final: messages } }) => {

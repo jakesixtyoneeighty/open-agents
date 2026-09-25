@@ -18,6 +18,7 @@ import {
   SUBAGENT_VALIDATE_RULES,
   SUBAGENT_WORKING_DIR,
 } from "./constants";
+import type { ScreenshotStore } from "../tools/screenshot-store";
 
 const EXECUTOR_SYSTEM_PROMPT = `You are an executor agent - a fire-and-forget subagent that completes specific, well-defined implementation tasks autonomously.
 
@@ -55,6 +56,7 @@ const callOptionsSchema = z.object({
     .custom<SandboxExecutionContext["sandbox"]>()
     .describe("Sandbox for file system and shell operations"),
   model: z.custom<LanguageModel>().describe("Language model for this subagent"),
+  screenshotStore: z.custom<ScreenshotStore>().optional(),
 });
 
 export type ExecutorCallOptions = z.infer<typeof callOptionsSchema>;

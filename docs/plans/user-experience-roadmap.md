@@ -2,12 +2,12 @@
 
 Approved sequence: begin with suggestion 2, then work down the review list. Implement and validate each increment before beginning the next. Suggestion 1 (readiness report) remains deferred, not silently included.
 
-Deviation (2026-09-24): increment 3 was skipped because it needs an infrastructure decision (see below); increments 4 and 5 were implemented instead. Increment 3 should be revisited before 6.
+Deviation (2026-09-24): increment 3 was skipped because it needs an infrastructure decision (see below); increments 4 and 5 were implemented instead. Increment 3 was revisited the same day once private Blob was live in production, and is now implemented locally.
 
 | Order | Increment | Acceptance |
 | --- | --- | --- |
 | 2 | Task/design brief and planning skill — implemented locally | Optional editable brief; persisted submission history; read-only planning; explicit build action; reload and continuation support. CI and component browser checks passed; live authenticated acceptance remains pending. |
-| 3 | Visual results gallery — blocked on storage decision | Label desktop/mobile captures by page and run; show errors; compare before/after only when both exist. Screenshots are currently stripped from persisted subagent output (`packages/agent/tools/task.ts`), so a gallery first needs durable image storage (e.g. Blob) and a retention decision. |
+| 3 | Visual results gallery — implemented locally | Label desktop/mobile captures by page and run; show errors; compare before/after only when both exist. Captures go to private Vercel Blob and are listed on the task output; owner- and share-scoped image routes; cleanup on chat/session delete. Unit + fixture browser checks passed; live authenticated acceptance pending. |
 | 4 | Saved message drafts — implemented locally | Restore text to its originating chat after navigation/refresh; clear only after accepted submission. Per-chat localStorage draft (`lib/chat-draft-storage.ts`, `hooks/use-chat-draft.ts`); held until status reaches streaming/ready, restored to the composer on error. Unit + fixture browser checks passed; live authenticated acceptance pending. |
 | 5 | Separate closing from deleting — implemented locally | Closed tabs remain in history; permanent deletion stays explicit. `chats.closed_at` column (migration 0037); tab X closes, closed chats menu reopens or deletes with confirmation. Route + fixture browser checks passed; live authenticated acceptance pending. |
 | 6 | Accurate outcome alerts | Completed, stopped, failed, and needs-input states derive from authoritative outcomes. |
@@ -20,10 +20,31 @@ Each increment must preserve session ownership checks, durable state, truthful v
 
 ## Implementation notes
 
-### 3. Visual results gallery — blocked
+### 3. Visual results gallery — implemented locally
 
-- `packages/agent/tools/screenshot.ts` captures images inside the design subagent, but `stripToolResultImages` in `packages/agent/tools/task.ts` replaces them with `[image omitted]` before the parent tool output is persisted. The capture only exists in the sandbox (`~/.open-agents/browser/shots/<toolCallId>.jpg`), which may be stopped later.
-- Decisions needed before building: where images are stored durably (e.g. Vercel Blob, private), retention/cleanup, and whether shared conversations expose them.
+**Decisions**
+- Storage: private Vercel Blob (already live in production). Enabled when `BLOB_READ_WRITE_TOKEN` or `BLOB_STORE_ID` is set; without either, galleries still list captures and errors but keep no images.
+- Retention: images live as long as what references them. Deleting a session removes its whole prefix; permanently deleting a chat removes only images no other chat in the session references (forks copy messages within a session). Deleting individual messages leaves images until the session is deleted. No TTL job.
+- Sharing: shared pages show images through a share-scoped route that serves only images referenced by that shared chat.
+
+**Behavior**
+- Each design-subagent run shows a "Screenshots" panel under the task row (visible without expanding), grouped by page, then desktop → tablet → mobile, light before dark. Thumbnails show the latest capture. Failed captures, HTTP ≥ 400, console errors, and images that were not saved are flagged.
+- Clicking a thumbnail opens the capture with its history. "Before / after" appears only when the same page, viewport, and color scheme has two or more stored images in that run (earliest versus latest).
+- The panel updates while the subagent is still running.
+
+**Changes**
+- `packages/agent/tools/screenshot-store.ts`: `ScreenshotStore` host interface and `TaskScreenshot` schema. The agent package stays storage-agnostic.
+- `packages/agent/tools/screenshot.ts`: hands each capture to the store (a storage failure is reported, not fatal) and returns `imageId`.
+- `packages/agent/tools/task.ts` + `task-screenshots.ts`: collect screenshot results from the subagent stream into `output.screenshots` (no base64). The store is passed through the call options → design subagent context.
+- `apps/web/app/workflows/chat.ts`: attaches `createScreenshotStore(sessionId)` inside `runAgentStep`, so it is never serialized into workflow state.
+- `apps/web/lib/screenshots/`: Blob storage (`screenshots/<sessionId>/<imageId>.jpg`), id validation and reference scanning, cleanup, and the streaming response.
+- Routes: `GET /api/sessions/[sessionId]/screenshots/[imageId]` (owner), `GET /api/shared/[shareId]/screenshots/[imageId]` (share-scoped); cleanup hooked into the session and chat `DELETE` handlers via `after`.
+- `apps/web/components/tool-call/screenshot-gallery/`: grouping logic (+ tests), gallery/dialog UI, and `ScreenshotSourceProvider` (mounted in the session chat and shared chat views).
+
+**Validation evidence**
+- `pnpm run ci` passed (format, lint, types, all isolated tests, migration check). New tests: grouping/issues, image-id validation and reference collection, subagent result conversion, and chat-delete cleanup scheduling.
+- Fixture page with a stub image route (both deleted afterwards): grouping, failed/HTTP/console/unsaved flags, before/after, failed-capture dialog, no horizontal overflow at 390px, clean hydration. The fixture caught one bug, which was fixed: an image that failed to load before hydration showed broken alt text, because `onError` had not attached yet.
+- Not yet exercised: a real design-subagent run uploading to the production Blob store, the owner and shared routes against real auth/DB, and delete cleanup against Blob.
 
 ### 4. Saved message drafts — implemented locally
 

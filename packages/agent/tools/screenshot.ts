@@ -1,5 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
+import { getScreenshotStore } from "./screenshot-store";
 import { getSandbox, shellEscape } from "./utils";
 
 const SETUP_TIMEOUT_MS = 5 * 60_000;
@@ -160,6 +161,8 @@ const screenshotOutputSchema = z.union([
     pageHeight: z.number(),
     consoleErrors: z.array(z.string()),
     imagePath: z.string(),
+    imageId: z.string().optional(),
+    storageError: z.string().optional(),
     image: z.string(),
     mediaType: z.literal("image/jpeg"),
   }),
@@ -168,6 +171,37 @@ const screenshotOutputSchema = z.union([
     error: z.string(),
   }),
 ]);
+
+export type ScreenshotToolOutput = z.infer<typeof screenshotOutputSchema>;
+export { screenshotInputSchema, screenshotOutputSchema };
+
+/**
+ * Hand the capture to the host's durable store, if any. A storage failure is
+ * reported alongside the capture rather than failing it: the subagent can
+ * still see the image.
+ */
+async function storeImage(
+  experimental_context: unknown,
+  toolCallId: string,
+  image: Buffer,
+): Promise<{ imageId?: string; storageError?: string }> {
+  const store = getScreenshotStore(experimental_context);
+  if (!store) {
+    return {};
+  }
+
+  try {
+    const { imageId } = await store.save({
+      toolCallId,
+      image,
+      mediaType: "image/jpeg",
+    });
+    return { imageId };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { storageError: `Could not store screenshot: ${message}` };
+  }
+}
 
 export const screenshotTool = tool({
   needsApproval: false,
@@ -259,6 +293,7 @@ EXAMPLES:
       }
 
       const image = await sandbox.readFileBuffer(imagePath);
+      const stored = await storeImage(experimental_context, toolCallId, image);
 
       return {
         success: true,
@@ -271,6 +306,7 @@ EXAMPLES:
         pageHeight: parsed.data.pageHeight,
         consoleErrors: parsed.data.consoleErrors,
         imagePath,
+        ...stored,
         image: image.toString("base64"),
         mediaType: "image/jpeg" as const,
       };

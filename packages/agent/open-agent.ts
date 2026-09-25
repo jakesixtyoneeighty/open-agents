@@ -26,6 +26,7 @@ import {
   webSearchTool,
   writeFileTool,
 } from "./tools";
+import type { ScreenshotStore } from "./tools/screenshot-store";
 
 export interface AgentModelSelection {
   id: GatewayModelId;
@@ -59,6 +60,7 @@ const callOptionsSchema = z.object({
   skills: z.custom<SkillMetadata[]>().optional(),
   github: z.custom<AgentGitHubContext>().optional(),
   planningMode: z.boolean().optional(),
+  screenshotStore: z.custom<ScreenshotStore>().optional(),
 });
 
 export type OpenAgentCallOptions = z.infer<typeof callOptionsSchema>;
@@ -185,6 +187,7 @@ export function createOpenAgent<
           model: callModel,
           subagentModel,
           github: options.github,
+          screenshotStore: options.screenshotStore,
         },
       };
     },

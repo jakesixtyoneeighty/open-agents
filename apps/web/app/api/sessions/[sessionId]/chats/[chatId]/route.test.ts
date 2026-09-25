@@ -98,6 +98,24 @@ mock.module("@/lib/db/sessions", () => ({
   },
 }));
 
+let chatOnlyScreenshotIds: string[] = [];
+const deletedScreenshotCalls: Array<{ sessionId: string; imageIds: string[] }> =
+  [];
+const afterCallbacks: Array<() => unknown> = [];
+
+mock.module("next/server", () => ({
+  after: (callback: () => unknown) => {
+    afterCallbacks.push(callback);
+  },
+}));
+
+mock.module("@/lib/screenshots/cleanup", () => ({
+  getChatOnlyScreenshotIds: async () => chatOnlyScreenshotIds,
+  deleteChatScreenshots: async (sessionId: string, imageIds: string[]) => {
+    deletedScreenshotCalls.push({ sessionId, imageIds });
+  },
+}));
+
 const routeModulePromise = import("./route");
 
 function createContext(sessionId = "session-1", chatId = "chat-1") {
@@ -120,6 +138,9 @@ function createPatchRequest(body: unknown): Request {
 
 describe("/api/sessions/[sessionId]/chats/[chatId]", () => {
   beforeEach(() => {
+    chatOnlyScreenshotIds = [];
+    deletedScreenshotCalls.length = 0;
+    afterCallbacks.length = 0;
     authResult = { ok: true, userId: "user-1" };
     ownedSessionChatResult = {
       ok: true,
@@ -376,5 +397,38 @@ describe("/api/sessions/[sessionId]/chats/[chatId]", () => {
     expect(response.status).toBe(200);
     expect(body.success).toBe(true);
     expect(deleteChatCalls).toEqual(["chat-1"]);
+  });
+
+  test("DELETE schedules removal of screenshots only this chat references", async () => {
+    chatOnlyScreenshotIds = ["toolu_1", "toolu_2"];
+    const { DELETE } = await routeModulePromise;
+
+    const response = await DELETE(
+      new Request("http://localhost/api/sessions/session-1/chats/chat-1", {
+        method: "DELETE",
+      }),
+      createContext(),
+    );
+
+    expect(response.status).toBe(200);
+    expect(deleteChatCalls).toEqual(["chat-1"]);
+    expect(afterCallbacks).toHaveLength(1);
+    await afterCallbacks[0]?.();
+    expect(deletedScreenshotCalls).toEqual([
+      { sessionId: "session-1", imageIds: ["toolu_1", "toolu_2"] },
+    ]);
+  });
+
+  test("DELETE schedules no screenshot cleanup when none are orphaned", async () => {
+    const { DELETE } = await routeModulePromise;
+
+    await DELETE(
+      new Request("http://localhost/api/sessions/session-1/chats/chat-1", {
+        method: "DELETE",
+      }),
+      createContext(),
+    );
+
+    expect(afterCallbacks).toHaveLength(0);
   });
 });
