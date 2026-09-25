@@ -146,6 +146,7 @@ import {
   type SandboxCreateErrorDetails,
 } from "./sandbox-create";
 import { SandboxCreateErrorBanner } from "./sandbox-create-error-banner";
+import { useChatDraft } from "./hooks/use-chat-draft";
 import { WorkspaceFileViewer } from "./workspace-file-viewer";
 import "streamdown/styles.css";
 
@@ -2630,6 +2631,14 @@ export function SessionChatContent({
   // Inline question UI is integrated into the prompt box on all viewports
   const showInlineQuestion = inlineQuestion.isActive;
 
+  const chatDraft = useChatDraft({
+    chatId: chatInfo.id,
+    input,
+    setInput,
+    status,
+    enabled: !showInlineQuestion,
+  });
+
   const isReconnectingSandbox =
     reconnectionStatus === "checking" &&
     !sandboxInfo &&
@@ -3943,6 +3952,7 @@ export function SessionChatContent({
                             };
                           }
 
+                          chatDraft.holdForSubmission(messageText);
                           setInput("");
                           clearImages();
                           clearTextAttachments();
@@ -4026,6 +4036,7 @@ export function SessionChatContent({
                               );
                               pendingOptimisticTitleChatIdRef.current = null;
                             }
+                            chatDraft.restoreAfterFailure(messageText);
                             console.error("Failed to send message:", err);
                           }
                         }}

@@ -26,6 +26,8 @@ type SessionLayoutContextValue = {
   chatsLoading: boolean;
   createChat: () => CreateChatResult;
   switchChat: (chatId: string) => void;
+  closeChat: (chatId: string) => Promise<void>;
+  reopenChat: (chatId: string) => Promise<void>;
   deleteChat: (chatId: string) => Promise<void>;
   renameChat: (chatId: string, title: string) => Promise<unknown>;
 };

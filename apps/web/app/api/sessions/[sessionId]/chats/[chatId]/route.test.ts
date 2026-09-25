@@ -62,9 +62,9 @@ let updatedChat: ChatRecord | null = {
   title: "Updated",
   modelId: "model-updated",
 };
-let chatsInSession: Array<{ id: string }> = [
-  { id: "chat-1" },
-  { id: "chat-2" },
+let chatsInSession: Array<{ id: string; closedAt: Date | null }> = [
+  { id: "chat-1", closedAt: null },
+  { id: "chat-2", closedAt: null },
 ];
 
 const updateChatCalls: Array<{
@@ -72,6 +72,7 @@ const updateChatCalls: Array<{
   patch: { title?: string; modelId?: string };
 }> = [];
 const deleteChatCalls: string[] = [];
+const setChatClosedCalls: Array<{ chatId: string; closed: boolean }> = [];
 
 mock.module("@/app/api/sessions/_lib/session-context", () => ({
   requireAuthenticatedUser: async () => authResult,
@@ -84,6 +85,10 @@ mock.module("@/lib/db/sessions", () => ({
     patch: { title?: string; modelId?: string },
   ) => {
     updateChatCalls.push({ chatId, patch });
+    return updatedChat;
+  },
+  setChatClosed: async (chatId: string, closed: boolean) => {
+    setChatClosedCalls.push({ chatId, closed });
     return updatedChat;
   },
   getChatMessages: async () => chatMessages,
@@ -138,9 +143,13 @@ describe("/api/sessions/[sessionId]/chats/[chatId]", () => {
       title: "Updated",
       modelId: "model-updated",
     };
-    chatsInSession = [{ id: "chat-1" }, { id: "chat-2" }];
+    chatsInSession = [
+      { id: "chat-1", closedAt: null },
+      { id: "chat-2", closedAt: null },
+    ];
     updateChatCalls.length = 0;
     deleteChatCalls.length = 0;
+    setChatClosedCalls.length = 0;
   });
 
   test("GET returns auth error from guard", async () => {
@@ -291,8 +300,53 @@ describe("/api/sessions/[sessionId]/chats/[chatId]", () => {
     expect(body.error).toBe("Chat not found");
   });
 
+  test("PATCH closes a chat without deleting it", async () => {
+    const { PATCH } = await routeModulePromise;
+
+    const response = await PATCH(
+      createPatchRequest({ closed: true }),
+      createContext(),
+    );
+
+    expect(response.status).toBe(200);
+    expect(setChatClosedCalls).toEqual([{ chatId: "chat-1", closed: true }]);
+    expect(updateChatCalls).toHaveLength(0);
+    expect(deleteChatCalls).toHaveLength(0);
+  });
+
+  test("PATCH refuses to close the only open chat", async () => {
+    chatsInSession = [
+      { id: "chat-1", closedAt: null },
+      { id: "chat-2", closedAt: new Date() },
+    ];
+    const { PATCH } = await routeModulePromise;
+
+    const response = await PATCH(
+      createPatchRequest({ closed: true }),
+      createContext(),
+    );
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe("Cannot close the only open chat in a session");
+    expect(setChatClosedCalls).toHaveLength(0);
+  });
+
+  test("PATCH reopens a closed chat", async () => {
+    chatsInSession = [{ id: "chat-1", closedAt: new Date() }];
+    const { PATCH } = await routeModulePromise;
+
+    const response = await PATCH(
+      createPatchRequest({ closed: false }),
+      createContext(),
+    );
+
+    expect(response.status).toBe(200);
+    expect(setChatClosedCalls).toEqual([{ chatId: "chat-1", closed: false }]);
+  });
+
   test("DELETE returns 400 when attempting to delete the only chat", async () => {
-    chatsInSession = [{ id: "chat-1" }];
+    chatsInSession = [{ id: "chat-1", closedAt: null }];
     const { DELETE } = await routeModulePromise;
 
     const response = await DELETE(

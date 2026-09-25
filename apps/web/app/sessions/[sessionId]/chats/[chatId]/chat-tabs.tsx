@@ -25,8 +25,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { clearChatDraft, getDraftStorage } from "@/lib/chat-draft-storage";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { ClosedChatsMenu } from "./closed-chats-menu";
 import { useGitPanel } from "./git-panel-context";
 
 type ChatTabsProps = {
@@ -37,8 +39,37 @@ export function ChatTabs({ activeChatId }: ChatTabsProps) {
   const router = useRouter();
   const params = useParams<{ sessionId?: string }>();
   const sessionId = params.sessionId ?? "";
-  const { chats, createChat, switchChat, deleteChat, renameChat } =
-    useSessionLayout();
+  const {
+    chats: allChats,
+    createChat,
+    switchChat,
+    closeChat,
+    reopenChat,
+    deleteChat,
+    renameChat,
+  } = useSessionLayout();
+
+  // Closed chats leave the tab bar but stay in history. The active chat keeps
+  // its tab even if closed (e.g. opened by URL) so the user isn't stranded.
+  const chats = useMemo(
+    () => allChats.filter((chat) => !chat.closedAt || chat.id === activeChatId),
+    [allChats, activeChatId],
+  );
+  const closedChats = useMemo(
+    () =>
+      allChats
+        .filter((chat) => chat.closedAt && chat.id !== activeChatId)
+        .toSorted(
+          (a, b) =>
+            new Date(b.closedAt ?? 0).getTime() -
+            new Date(a.closedAt ?? 0).getTime(),
+        ),
+    [allChats, activeChatId],
+  );
+  const openChats = useMemo(
+    () => allChats.filter((chat) => !chat.closedAt),
+    [allChats],
+  );
   const {
     activeView,
     setActiveView,
@@ -186,6 +217,38 @@ export function ChatTabs({ activeChatId }: ChatTabsProps) {
     setRenamingChatId(null);
   }, [renamingChatId, renameValue, renameChat]);
 
+  const handleCloseChat = useCallback(
+    (chatId: string) => {
+      const nextOpenChat = openChats.find((c) => c.id !== chatId);
+      if (!nextOpenChat) return;
+
+      if (chatId === activeChatId) {
+        switchChat(nextOpenChat.id);
+        setActiveView("chat");
+      }
+
+      if (allChats.find((c) => c.id === chatId)?.closedAt) {
+        return;
+      }
+
+      void closeChat(chatId).catch((err) => {
+        console.error("Failed to close chat:", err);
+      });
+    },
+    [activeChatId, allChats, closeChat, openChats, setActiveView, switchChat],
+  );
+
+  const handleReopenChat = useCallback(
+    (chatId: string) => {
+      switchChat(chatId);
+      setActiveView("chat");
+      void reopenChat(chatId).catch((err) => {
+        console.error("Failed to reopen chat:", err);
+      });
+    },
+    [reopenChat, setActiveView, switchChat],
+  );
+
   const handleConfirmDelete = useCallback(async () => {
     if (!deletingChatId) return;
     const idToDelete = deletingChatId;
@@ -193,19 +256,18 @@ export function ChatTabs({ activeChatId }: ChatTabsProps) {
 
     try {
       await deleteChat(idToDelete);
+      clearChatDraft(getDraftStorage(), idToDelete);
     } catch (err) {
       console.error("Failed to delete chat:", err);
     }
+  }, [deletingChatId, deleteChat]);
 
-    if (idToDelete === activeChatId) {
-      const remaining = chats.filter((c) => c.id !== idToDelete);
-      if (remaining.length > 0) {
-        switchChat(remaining[0].id);
-      }
-    }
-  }, [deletingChatId, activeChatId, chats, deleteChat, switchChat]);
-
-  const canDelete = chats.length > 1;
+  // A tab can be closed while another open chat remains to land on.
+  const canClose = useCallback(
+    (chatId: string) => openChats.some((c) => c.id !== chatId),
+    [openChats],
+  );
+  const deletingChat = allChats.find((c) => c.id === deletingChatId);
   const showChangesTab = !changesTabDismissed && !!focusedDiffFile;
   const insertAt = showChangesTab ? (changesTabIndex ?? chats.length) : null;
   const showFileTab = !fileTabDismissed && !!focusedFilePath;
@@ -361,12 +423,12 @@ export function ChatTabs({ activeChatId }: ChatTabsProps) {
               >
                 <Pencil className="h-3 w-3" />
               </button>
-              {canDelete && (
+              {canClose(chat.id) && (
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setDeletingChatId(chat.id);
+                    handleCloseChat(chat.id);
                   }}
                   className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                   aria-label="Close chat"
@@ -392,12 +454,13 @@ export function ChatTabs({ activeChatId }: ChatTabsProps) {
   }, [
     activeChatId,
     activeView,
-    canDelete,
+    canClose,
     chats,
     fileInsertAt,
     fileTabFileName,
     handleCloseChanges,
     handleCloseFile,
+    handleCloseChat,
     handleFinishRename,
     handleStartRename,
     insertAt,
@@ -433,6 +496,11 @@ export function ChatTabs({ activeChatId }: ChatTabsProps) {
             <TooltipContent side="bottom">New chat</TooltipContent>
           </Tooltip>
         </div>
+        <ClosedChatsMenu
+          closedChats={closedChats}
+          onReopen={handleReopenChat}
+          onRequestDelete={setDeletingChatId}
+        />
       </div>
 
       <Dialog
@@ -443,10 +511,13 @@ export function ChatTabs({ activeChatId }: ChatTabsProps) {
       >
         <DialogContent showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle>Close chat?</DialogTitle>
+            <DialogTitle>Delete chat permanently?</DialogTitle>
             <DialogDescription>
-              This will permanently delete this chat and its messages. This
-              action cannot be undone.
+              {deletingChat?.title
+                ? `"${deletingChat.title}" and its`
+                : "This chat and its"}{" "}
+              messages will be permanently deleted. This action cannot be
+              undone. To just hide it, close the tab instead.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

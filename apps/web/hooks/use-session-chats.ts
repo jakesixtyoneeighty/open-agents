@@ -499,6 +499,7 @@ export function useSessionChats(
       modelId: data?.defaultModelId ?? null,
       activeStreamId: null,
       lastAssistantMessageAt: null,
+      closedAt: null,
       createdAt: now,
       updatedAt: now,
     };
@@ -591,6 +592,7 @@ export function useSessionChats(
       modelId: sourceChat.modelId,
       activeStreamId: null,
       lastAssistantMessageAt: null,
+      closedAt: null,
       createdAt: now,
       updatedAt: now,
     };
@@ -700,6 +702,52 @@ export function useSessionChats(
 
     return updatedChat;
   };
+
+  const setChatClosed = async (chatId: string, closed: boolean) => {
+    if (!sessionId) {
+      throw new Error("Missing sessionId");
+    }
+
+    const previousClosedAt =
+      chats.find((chat) => chat.id === chatId)?.closedAt ?? null;
+    const applyClosedAt = (closedAt: Date | null) =>
+      mutate(
+        (current) =>
+          toChatsResponse(
+            current,
+            (current?.chats ?? []).map((chat) =>
+              chat.id === chatId ? { ...chat, closedAt } : chat,
+            ),
+          ),
+        { revalidate: false },
+      );
+
+    await applyClosedAt(closed ? new Date() : null);
+
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/chats/${chatId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ closed }),
+      });
+      const responseData = (await res.json()) as {
+        chat?: Chat;
+        error?: string;
+      };
+      if (!res.ok || !responseData.chat) {
+        throw new Error(
+          responseData.error ??
+            (closed ? "Failed to close chat" : "Failed to reopen chat"),
+        );
+      }
+    } catch (error) {
+      await applyClosedAt(previousClosedAt);
+      throw error;
+    }
+  };
+
+  const closeChat = (chatId: string) => setChatClosed(chatId, true);
+  const reopenChat = (chatId: string) => setChatClosed(chatId, false);
 
   const deleteChat = async (chatId: string) => {
     if (!sessionId) {
@@ -857,6 +905,8 @@ export function useSessionChats(
     createChat,
     forkChat,
     renameChat,
+    closeChat,
+    reopenChat,
     deleteChat,
     markChatRead,
     setChatStreaming,

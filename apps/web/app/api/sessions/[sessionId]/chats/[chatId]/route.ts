@@ -7,6 +7,7 @@ import {
   deleteChat,
   getChatMessages,
   getChatsBySessionId,
+  setChatClosed,
   updateChat,
 } from "@/lib/db/sessions";
 
@@ -17,6 +18,7 @@ type RouteContext = {
 interface UpdateChatRequest {
   title?: string;
   modelId?: string;
+  closed?: boolean;
 }
 
 export interface ChatRefreshResponse {
@@ -81,6 +83,28 @@ export async function PATCH(req: Request, context: RouteContext) {
     body = (await req.json()) as UpdateChatRequest;
   } catch {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  if (typeof body.closed === "boolean") {
+    if (body.closed) {
+      const chats = await getChatsBySessionId(sessionId);
+      const hasOtherOpenChat = chats.some(
+        (chat) => chat.id !== chatId && chat.closedAt === null,
+      );
+      if (!hasOtherOpenChat) {
+        return Response.json(
+          { error: "Cannot close the only open chat in a session" },
+          { status: 400 },
+        );
+      }
+    }
+
+    const closedChat = await setChatClosed(chatId, body.closed);
+    if (!closedChat) {
+      return Response.json({ error: "Chat not found" }, { status: 404 });
+    }
+
+    return Response.json({ chat: closedChat });
   }
 
   const nextTitle = body.title?.trim();

@@ -421,6 +421,7 @@ export async function getChatSummariesBySessionId(
       modelId: chats.modelId,
       activeStreamId: chats.activeStreamId,
       lastAssistantMessageAt: chats.lastAssistantMessageAt,
+      closedAt: chats.closedAt,
       createdAt: chats.createdAt,
       updatedAt: chats.updatedAt,
       hasUnread: sql<boolean>`
@@ -451,6 +452,19 @@ export async function updateChat(
   const [chat] = await db
     .update(chats)
     .set({ ...data, updatedAt: new Date() })
+    .where(eq(chats.id, chatId))
+    .returning();
+  return chat;
+}
+
+/**
+ * Close or reopen a chat tab. Leaves updatedAt alone so closing doesn't
+ * reorder the chat as if it had new activity.
+ */
+export async function setChatClosed(chatId: string, closed: boolean) {
+  const [chat] = await db
+    .update(chats)
+    .set({ closedAt: closed ? new Date() : null })
     .where(eq(chats.id, chatId))
     .returning();
   return chat;

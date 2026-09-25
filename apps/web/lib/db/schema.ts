@@ -211,6 +211,8 @@ export const chats = pgTable(
     modelId: text("model_id").default("anthropic/claude-haiku-4.5"),
     activeStreamId: text("active_stream_id"),
     lastAssistantMessageAt: timestamp("last_assistant_message_at"),
+    // Closed chats are hidden from the tab bar but kept in session history.
+    closedAt: timestamp("closed_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

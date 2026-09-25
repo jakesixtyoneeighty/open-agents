@@ -1,0 +1,1 @@
+ALTER TABLE "chats" ADD COLUMN "closed_at" timestamp;

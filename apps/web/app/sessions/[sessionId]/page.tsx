@@ -28,7 +28,7 @@ export default async function SessionPage({ params }: SessionPageProps) {
   }
 
   const chats = await getChatsBySessionId(sessionId);
-  const targetChat = chats[0];
+  const targetChat = chats.find((chat) => !chat.closedAt) ?? chats[0];
 
   if (!targetChat) {
     notFound();
