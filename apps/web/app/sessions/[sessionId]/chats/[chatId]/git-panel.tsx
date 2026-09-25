@@ -38,6 +38,7 @@ import {
   type MergeReadinessResponse,
 } from "@/lib/github/queries/pr";
 import type { Session } from "@/lib/db/schema";
+import { useDiffReview } from "./hooks/use-diff-review";
 import type { CheckRun, MergeMethod } from "@/lib/github/pulls";
 import { Button } from "@/components/ui/button";
 import {
@@ -184,17 +185,20 @@ function canDiscardFile(file: DiffFile): boolean {
 }
 
 function DiffFileList({
+  sessionId,
   files,
   onDiscardFile,
   discardingFilePath,
   discardDisabled,
 }: {
+  sessionId: string;
   files: DiffFile[];
   onDiscardFile: (file: DiffFile) => void;
   discardingFilePath: string | null;
   discardDisabled: boolean;
 }) {
   const { openDiffToFile, diffScope } = useGitPanel();
+  const { reviewedPaths } = useDiffReview(sessionId, files);
 
   const filteredFiles =
     diffScope === "branch" ? files : files.filter(isUncommittedFile);
@@ -217,6 +221,7 @@ function DiffFileList({
         {filteredFiles.map((file) => {
           const fileName = file.path.split("/").pop() ?? file.path;
           const dirPath = file.path.slice(0, -fileName.length);
+          const isReviewed = reviewedPaths.has(file.path);
 
           return (
             <div
@@ -230,7 +235,12 @@ function DiffFileList({
               >
                 <DiffFileStatusIcon status={file.status} />
                 <div className="flex min-w-0 flex-1 items-baseline gap-1.5 overflow-hidden">
-                  <span className="shrink-0 font-mono text-xs font-medium text-foreground">
+                  <span
+                    className={cn(
+                      "shrink-0 font-mono text-xs font-medium text-foreground",
+                      isReviewed && "text-muted-foreground",
+                    )}
+                  >
                     {fileName}
                   </span>
                   {dirPath && (
@@ -243,6 +253,12 @@ function DiffFileList({
                   )}
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5 text-[10px]">
+                  {isReviewed ? (
+                    <Check
+                      className="h-3 w-3 text-muted-foreground"
+                      aria-label="Reviewed"
+                    />
+                  ) : null}
                   {file.additions > 0 && (
                     <span className="text-green-600 dark:text-green-500">
                       +{file.additions}
@@ -2131,6 +2147,7 @@ export function GitPanel(props: GitPanelProps) {
             <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
               {diffFiles && diffFiles.length > 0 ? (
                 <DiffFileList
+                  sessionId={session.id}
                   files={diffFiles}
                   onDiscardFile={(file) => {
                     setDiscardTarget({
