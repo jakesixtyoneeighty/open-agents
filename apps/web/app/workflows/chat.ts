@@ -50,6 +50,8 @@ import type {
 } from "@/lib/db/workflow-runs";
 import { resolveChatModelSelection } from "../api/chat/_lib/model-selection";
 import { resolveChatSandboxRuntime } from "./chat-sandbox-runtime";
+import { resolveTaskPlanning } from "./task-planning";
+import { taskBriefSubmissionSchema } from "@/lib/task-brief";
 
 type Options = {
   messages: WebAgentUIMessage[];
@@ -112,6 +114,15 @@ const convertMessages = async (
       ignoreIncompleteToolCalls: true,
       tools: webAgent.tools,
       convertDataPart: (part) => {
+        if (part.type === "data-task-brief") {
+          return {
+            type: "text",
+            text: JSON.stringify({
+              type: "task-brief",
+              ...taskBriefSubmissionSchema.parse(part.data),
+            }),
+          };
+        }
         if (part.type === "data-snippet") {
           const { filename, content } = part.data;
           return {
@@ -188,6 +199,15 @@ async function resolveChatModelRuntime(params: {
         ? { subagentModel: subagentModelSelection }
         : {}),
       customInstructions: assistantFileLinkPrompt,
+      ...(sessionRecord.repoOwner && sessionRecord.repoName
+        ? {
+            github: {
+              userId: params.userId,
+              owner: sessionRecord.repoOwner,
+              repo: sessionRecord.repoName,
+            },
+          }
+        : {}),
     },
     autoCommitEnabled,
     autoCreatePrEnabled,
@@ -669,9 +689,18 @@ export async function runAgentWorkflow(options: Options) {
       ),
     };
 
+    const planning = await resolveTaskPlanning(options.messages);
     const agentOptions: OpenAgentCallOptions = {
       ...modelRuntime.agentOptions,
       ...options.agentOptions,
+      planningMode: planning.planningMode,
+      customInstructions: [
+        options.agentOptions?.customInstructions ??
+          modelRuntime.agentOptions.customInstructions,
+        planning.instructions,
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
       sandbox: {
         state: runtime.sandboxState,
         workingDirectory: runtime.workingDirectory,
@@ -780,6 +809,7 @@ export async function runAgentWorkflow(options: Options) {
       null;
 
     const canAutoCommit =
+      !planning.planningMode &&
       finishedNaturally &&
       (options.autoCommitEnabled ?? modelRuntime.autoCommitEnabled) &&
       sandboxState != null &&

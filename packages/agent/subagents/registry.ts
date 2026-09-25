@@ -17,7 +17,7 @@ export const SUBAGENT_REGISTRY = {
   },
   design: {
     shortDescription:
-      "Use for creating distinctive, production-grade frontend interfaces with high design quality. Generates creative, polished code that avoids generic AI aesthetics.",
+      "Use for any frontend work where visual identity matters (brand sites, product UIs, tool UIs, editorial pages). Art-directs a locked design grammar before building, and avoids template and component-library defaults.",
     agent: designSubagent,
     model: DESIGN_MODEL,
   },

@@ -1,5 +1,6 @@
 import { isReasoningUIPart, isToolUIPart } from "ai";
 import type { WebAgentUIMessage } from "@/app/types";
+import { formatTaskBrief } from "@/lib/task-brief";
 import { getChatById, getChatMessages } from "@/lib/db/sessions";
 import {
   getSessionByIdCached,
@@ -67,6 +68,10 @@ function getMessageBody(message: WebAgentUIMessage): string {
         blocks.push(text);
       }
       continue;
+    }
+
+    if (part.type === "data-task-brief") {
+      blocks.push(formatTaskBrief(part.data.brief));
     }
 
     if (part.type === "data-snippet") {

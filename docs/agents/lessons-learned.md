@@ -79,6 +79,9 @@ Hard-won knowledge from building this codebase. When you make a mistake or disco
 
 ## Chat / Streaming UI
 
+- Task brief snapshots live in user-message `data-task-brief` parts. Preserve them through resend, transcript rendering, sharing/export, and model conversion; dropping them on retry can silently exit planning. Derive plan/build mode only from user snapshots, and filter executable tools plus git automation on the server.
+- A hosted planning skill must ship with the web deployment: a `SKILL.md` in this repository's `.agents/skills` is not automatically available in arbitrary cloned sandbox repositories. Load the bundled skill inside a workflow step and explicitly trace the asset.
+
 - In large chat/page client components, extract new feature-specific UI flows into colocated hooks and child components instead of adding more state/effects/handlers inline; if the feature state must survive dropdown/popover/dialog toggles, mount the hook in the parent view and pass its controls down.
 - In the web chat UI, do not keep `@ai-sdk/react` Chat instances alive after route transitions while they are still streaming; abort local stream processing and remove the instance on teardown, then rely on resumable stream reconnect when revisiting that chat.
 - For client-side tool flows (`ask_user_question`), `onFinish`-only assistant persistence is insufficient across route switches: persist the latest incoming message snapshot at API request start (upsert by message id) so answered/declined tool state survives teardown/resume and does not rehydrate stale `input-available` UI.

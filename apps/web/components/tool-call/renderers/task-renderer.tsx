@@ -5,6 +5,7 @@ import { formatTokens, toRelativePath } from "@open-agents/shared";
 import type { ToolRenderState } from "@open-agents/shared/lib/tool-state";
 import {
   Bot,
+  Camera,
   FileText,
   FilePlus,
   FolderSearch,
@@ -36,6 +37,7 @@ import { TodoRenderer } from "./todo-renderer";
 import { AskUserQuestionRenderer } from "./ask-user-question-renderer";
 import { FetchRenderer } from "./fetch-renderer";
 import { SkillRenderer } from "./skill-renderer";
+import { WebSearchRenderer } from "./web-search-renderer";
 
 // ---------------------------------------------------------------------------
 // Tool name → icon / display name mapping (for pending tool call only)
@@ -82,6 +84,16 @@ function getToolMeta(toolName: string): ToolMeta {
         displayName: "Fetch",
         icon: <Globe className={TOOL_ICON_CLASS} />,
       };
+    case "web_search":
+      return {
+        displayName: "Search",
+        icon: <Search className={TOOL_ICON_CLASS} />,
+      };
+    case "screenshot":
+      return {
+        displayName: "Screenshot",
+        icon: <Camera className={TOOL_ICON_CLASS} />,
+      };
     case "skill":
       return {
         displayName: "Skill",
@@ -114,6 +126,12 @@ function getToolSummary(name: string, input: unknown): string {
       return inp.pattern ? `'${inp.pattern}'` : "";
     case "bash":
       return inp.command ? String(inp.command) : "";
+    case "web_search":
+      return inp.query ? `"${inp.query}"` : "";
+    case "screenshot": {
+      const viewport = inp.viewport ? ` (${inp.viewport})` : "";
+      return inp.url ? `${inp.url}${viewport}` : "";
+    }
     default:
       return "";
   }
@@ -295,6 +313,8 @@ function SubagentToolCall({ part }: { part: WebAgentUIToolPart }) {
       return <FetchRenderer part={part} state={state} />;
     case "tool-skill":
       return <SkillRenderer part={part} state={state} />;
+    case "tool-web_search":
+      return <WebSearchRenderer part={part} state={state} />;
     default: {
       const toolName = getToolName(part);
       const name = toolName.charAt(0).toUpperCase() + toolName.slice(1);

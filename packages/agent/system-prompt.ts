@@ -109,6 +109,10 @@ ${buildSubagentSummaryLines()}
 - Use when: Large mechanical work that can be clearly specified (migrations, scaffolding)
 - Avoid for: Ambiguous requirements, architectural decisions, small localized fixes
 
+## Web
+- \`web_search\` - Search the web for current docs, release notes, error messages, and library versions. Use it instead of guessing when an API may have changed.
+- \`web_fetch\` - Fetch a specific URL (requires user approval). Use it to read a page returned by \`web_search\` in full.
+
 ## Gathering User Input
 - \`ask_user_question\` - Ask structured questions to gather user input
 - Use PROACTIVELY when:
@@ -320,6 +324,18 @@ function getModelOverlay(family: ModelFamily, modelId?: string): string {
 // Cloud sandbox instructions
 // ---------------------------------------------------------------------------
 
+const GITHUB_TOOLS_INSTRUCTIONS = `# GitHub
+
+You can read this repository's pull request state on GitHub:
+- \`github_pr_status\` - The PR for the current branch (or a given PR number): state, mergeability, and every CI check with its result
+- \`github_check_logs\` - Annotations and the tail of the log for one check run. Use it on failed checks to see why CI failed
+- \`github_pr_comments\` - Review comments and discussion on the PR, including file and line for inline comments
+
+When to use them:
+- After pushing, or when the user mentions CI, checks, or a failing build: check \`github_pr_status\`, read the logs of each failed check, fix the cause locally, and verify with the same command CI runs
+- When the user asks you to address review feedback: read \`github_pr_comments\` and handle each comment
+- Checks that are still pending are not failures. Report them as pending instead of waiting in a loop`;
+
 const CLOUD_SANDBOX_INSTRUCTIONS = `# Cloud Sandbox
 
 Your sandbox is ephemeral. The application broker persists reviewed changes to GitHub outside this sandbox.
@@ -347,6 +363,7 @@ export interface BuildSystemPromptOptions {
   environmentDetails?: string;
   skills?: SkillMetadata[];
   modelId?: string;
+  githubToolsEnabled?: boolean;
 }
 
 /**
@@ -436,6 +453,10 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions): string {
     parts.push(
       `\n# Project-Specific Instructions\n\n${options.customInstructions}`,
     );
+  }
+
+  if (options.githubToolsEnabled) {
+    parts.push(`\n${GITHUB_TOOLS_INSTRUCTIONS}`);
   }
 
   // Add skills section if skills are available

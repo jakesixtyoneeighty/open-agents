@@ -22,6 +22,9 @@ mock.module("ai", () => {
   return {
     tool: <T extends Record<string, unknown>>(definition: T) => definition,
     gateway,
+    createGateway: () => gateway,
+    defaultSettingsMiddleware: () => ({}),
+    wrapLanguageModel: ({ model }: { model: unknown }) => model,
     stepCountIs: (count: number) => ({ count }),
     ToolLoopAgent: MockToolLoopAgent,
     getToolName: (part: { toolName?: string; type?: string }) => {

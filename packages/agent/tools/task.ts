@@ -16,6 +16,40 @@ import { getSandboxContext, getSubagentModel } from "./utils";
 
 const subagentTypeSchema = z.enum(SUBAGENT_TYPES);
 
+/**
+ * Replace image payloads in subagent tool results (e.g. screenshots) with a
+ * placeholder. The subagent already saw them; persisting the base64 in the
+ * parent's tool output would bloat stored chat history.
+ */
+function stripToolResultImages(messages: ModelMessage[]): ModelMessage[] {
+  return messages.map((message) => {
+    if (message.role !== "tool") {
+      return message;
+    }
+
+    return {
+      ...message,
+      content: message.content.map((part) => {
+        if (part.type !== "tool-result" || part.output.type !== "content") {
+          return part;
+        }
+
+        return {
+          ...part,
+          output: {
+            ...part.output,
+            value: part.output.value.map((item) =>
+              item.type === "image-data" || item.type === "file-data"
+                ? { type: "text" as const, text: "[image omitted]" }
+                : item,
+            ),
+          },
+        };
+      }),
+    };
+  });
+}
+
 const subagentSummaryLines = buildSubagentSummaryLines();
 
 const taskInputSchema = z.object({
@@ -145,7 +179,7 @@ IMPORTANT:
     const response = await result.response;
     const finalUsage = usage ?? (await result.usage);
     yield {
-      final: response.messages,
+      final: stripToolResultImages(response.messages),
       toolCallCount,
       usage: finalUsage,
       startedAt,

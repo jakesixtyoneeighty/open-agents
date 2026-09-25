@@ -11,6 +11,7 @@ import {
 
 import type { SkillMetadata } from "./skills/types";
 import { buildSystemPrompt } from "./system-prompt";
+import { getPlanningTools } from "./planning";
 import {
   askUserQuestionTool,
   bashTool,
@@ -22,6 +23,7 @@ import {
   taskTool,
   todoWriteTool,
   webFetchTool,
+  webSearchTool,
   writeFileTool,
 } from "./tools";
 
@@ -31,6 +33,16 @@ export interface AgentModelSelection {
 }
 
 export type OpenAgentModelInput = GatewayModelId | AgentModelSelection;
+
+/**
+ * Repository context for server-side GitHub tools. Serializable, and never
+ * carries a token: tools resolve the user's credentials when they execute.
+ */
+export interface AgentGitHubContext {
+  userId: string;
+  owner: string;
+  repo: string;
+}
 
 export interface AgentSandboxContext {
   state: SandboxState;
@@ -45,6 +57,8 @@ const callOptionsSchema = z.object({
   subagentModel: z.custom<OpenAgentModelInput>().optional(),
   customInstructions: z.string().optional(),
   skills: z.custom<SkillMetadata[]>().optional(),
+  github: z.custom<AgentGitHubContext>().optional(),
+  planningMode: z.boolean().optional(),
 });
 
 export type OpenAgentCallOptions = z.infer<typeof callOptionsSchema>;
@@ -67,7 +81,7 @@ function normalizeAgentModelSelection(
   return typeof selection === "string" ? { id: selection } : selection;
 }
 
-const tools = {
+const baseTools = {
   todo_write: todoWriteTool,
   read: readFileTool(),
   write: writeFileTool(),
@@ -79,73 +93,104 @@ const tools = {
   ask_user_question: askUserQuestionTool,
   skill: skillTool,
   web_fetch: webFetchTool,
+  web_search: webSearchTool,
 } satisfies ToolSet;
 
-export const openAgent = new ToolLoopAgent({
-  model: defaultModel,
-  instructions: buildSystemPrompt({}),
-  tools,
-  stopWhen: stepCountIs(1),
-  callOptionsSchema,
-  prepareStep: ({ messages, model, steps: _steps }) => {
-    return {
-      messages: addCacheControl({
-        messages,
-        model,
-      }),
-    };
-  },
-  prepareCall: ({ options, ...settings }) => {
-    if (!options) {
-      throw new Error("Open Agent requires call options with sandbox.");
-    }
+export interface CreateOpenAgentOptions<TExtraTools extends ToolSet> {
+  /**
+   * Host-provided tools merged into the base toolset. Use this for tools that
+   * need host credentials (e.g. GitHub), which must stay out of the sandbox.
+   */
+  extraTools?: TExtraTools;
+}
 
-    const mainSelection = normalizeAgentModelSelection(
-      options.model,
-      defaultModelLabel,
-    );
-    const subagentSelection = options.subagentModel
-      ? normalizeAgentModelSelection(options.subagentModel, defaultModelLabel)
-      : undefined;
+export function createOpenAgent<
+  TExtraTools extends ToolSet = Record<never, never>,
+>(createOptions: CreateOpenAgentOptions<TExtraTools> = {}) {
+  const tools = {
+    ...baseTools,
+    ...(createOptions.extraTools ?? ({} as TExtraTools)),
+  };
+  const hasGitHubTools = Object.keys(tools).some((name) =>
+    name.startsWith("github_"),
+  );
 
-    const callModel = gateway(mainSelection.id, {
-      providerOptionsOverrides: mainSelection.providerOptionsOverrides,
-      reasoningEffort: MAIN_REASONING_EFFORT,
-    });
-    const subagentModel = subagentSelection
-      ? gateway(subagentSelection.id, {
-          providerOptionsOverrides: subagentSelection.providerOptionsOverrides,
-        })
-      : undefined;
-    const customInstructions = options.customInstructions;
-    const sandbox = options.sandbox;
-    const skills = options.skills ?? [];
+  return new ToolLoopAgent({
+    model: defaultModel,
+    instructions: buildSystemPrompt({}),
+    tools,
+    stopWhen: stepCountIs(1),
+    callOptionsSchema,
+    prepareStep: ({ messages, model, steps: _steps }) => {
+      return {
+        messages: addCacheControl({
+          messages,
+          model,
+        }),
+      };
+    },
+    prepareCall: ({ options, ...settings }) => {
+      if (!options) {
+        throw new Error("Open Agent requires call options with sandbox.");
+      }
 
-    const instructions = buildSystemPrompt({
-      cwd: sandbox.workingDirectory,
-      currentBranch: sandbox.currentBranch,
-      customInstructions,
-      environmentDetails: sandbox.environmentDetails,
-      skills,
-      modelId: mainSelection.id,
-    });
+      const mainSelection = normalizeAgentModelSelection(
+        options.model,
+        defaultModelLabel,
+      );
+      const subagentSelection = options.subagentModel
+        ? normalizeAgentModelSelection(options.subagentModel, defaultModelLabel)
+        : undefined;
 
-    return {
-      ...settings,
-      model: callModel,
-      tools: addCacheControl({
-        tools: settings.tools ?? tools,
+      const callModel = gateway(mainSelection.id, {
+        providerOptionsOverrides: mainSelection.providerOptionsOverrides,
+        reasoningEffort: MAIN_REASONING_EFFORT,
+      });
+      const subagentModel = subagentSelection
+        ? gateway(subagentSelection.id, {
+            providerOptionsOverrides:
+              subagentSelection.providerOptionsOverrides,
+          })
+        : undefined;
+      const customInstructions = options.customInstructions;
+      const sandbox = options.sandbox;
+      const skills = options.skills ?? [];
+
+      const instructions = buildSystemPrompt({
+        cwd: sandbox.workingDirectory,
+        currentBranch: sandbox.currentBranch,
+        customInstructions,
+        environmentDetails: sandbox.environmentDetails,
+        skills: options.planningMode ? [] : skills,
+        modelId: mainSelection.id,
+        githubToolsEnabled:
+          !options.planningMode &&
+          hasGitHubTools &&
+          options.github !== undefined,
+      });
+
+      return {
+        ...settings,
         model: callModel,
-      }),
-      instructions,
-      experimental_context: {
-        sandbox,
-        skills,
-        model: callModel,
-        subagentModel,
-      },
-    };
-  },
-});
+        tools: addCacheControl({
+          tools: options.planningMode
+            ? getPlanningTools(settings.tools ?? tools)
+            : (settings.tools ?? tools),
+          model: callModel,
+        }),
+        instructions,
+        experimental_context: {
+          sandbox,
+          skills,
+          model: callModel,
+          subagentModel,
+          github: options.github,
+        },
+      };
+    },
+  });
+}
+
+export const openAgent = createOpenAgent();
 
 export type OpenAgent = typeof openAgent;

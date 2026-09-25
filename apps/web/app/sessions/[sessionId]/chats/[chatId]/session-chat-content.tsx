@@ -77,6 +77,8 @@ import {
   getLatestTodos,
 } from "@/components/pinned-todo-panel";
 import { MojoEmptyChat } from "@/components/brand/mojo-empty-chat";
+import { TaskBriefControls } from "@/components/task-brief/task-brief-controls";
+import { TaskBriefSummary } from "@/components/task-brief/task-brief-summary";
 import { MojoThinking } from "@/components/brand/mojo-thinking";
 import { ThinkingBlock } from "@/components/thinking-block";
 import { ToolCall } from "@/components/tool-call";
@@ -2047,6 +2049,9 @@ export function SessionChatContent({
           text: part.text,
         }));
       const resendText = resendTextParts.map((part) => part.text).join("");
+      const resendBriefs = targetMessage.parts.filter(
+        (part) => part.type === "data-task-brief",
+      );
       const resendFiles = targetMessage.parts
         .filter((part): part is FileUIPart => part.type === "file")
         .map((part) => ({
@@ -2103,9 +2108,14 @@ export function SessionChatContent({
 
         setMessages(messages.slice(0, targetMessageIndex));
         await sendMessageWithPendingState(
-          resendSnippets.length > 0
+          resendSnippets.length > 0 || resendBriefs.length > 0
             ? {
-                parts: [...resendTextParts, ...resendFiles, ...resendSnippets],
+                parts: [
+                  ...resendTextParts,
+                  ...resendFiles,
+                  ...resendSnippets,
+                  ...resendBriefs,
+                ],
               }
             : {
                 text: resendText,
@@ -3657,6 +3667,15 @@ export function SessionChatContent({
                                   );
                                 }
 
+                                if (p.type === "data-task-brief") {
+                                  return (
+                                    <TaskBriefSummary
+                                      key={`${m.id}-${group.renderKey}`}
+                                      submission={p.data}
+                                    />
+                                  );
+                                }
+
                                 if (p.type === "data-snippet") {
                                   if (
                                     !isToolCallsExpanded &&
@@ -3842,6 +3861,18 @@ export function SessionChatContent({
                       />
                     )}
                     {/* Pinned Todo Panel — sits above the input box */}
+                    <TaskBriefControls
+                      key={chatInfo.id}
+                      messages={messages}
+                      buildBlocked={userStopped || !!error}
+                      disabled={
+                        isArchived ||
+                        isChatInFlight ||
+                        hasPendingResponse ||
+                        showInlineQuestion
+                      }
+                      onSend={sendMessageWithPendingState}
+                    />
                     <PinnedTodoPanel todos={latestTodos} />
                     {/* Input form */}
                     <div

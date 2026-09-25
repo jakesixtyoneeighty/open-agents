@@ -6,6 +6,7 @@ import { bashTool } from "../tools/bash";
 import { globTool } from "../tools/glob";
 import { grepTool } from "../tools/grep";
 import { readFileTool } from "../tools/read";
+import { webSearchTool } from "../tools/web-search";
 import type { SandboxExecutionContext } from "../types";
 import {
   SUBAGENT_NO_QUESTIONS_RULES,
@@ -45,7 +46,7 @@ Example final response:
 
 ## TOOLS & GUIDELINES
 
-You have access to: read, grep, glob, bash (read-only commands only)
+You have access to: read, grep, glob, bash (read-only commands only), web_search (current docs, library versions, error messages)
 
 **Strengths:**
 - Rapidly finding files using glob patterns
@@ -89,6 +90,7 @@ export const explorerSubagent = new ToolLoopAgent({
     grep: grepTool(),
     glob: globTool(),
     bash: bashTool(),
+    web_search: webSearchTool,
   },
   stopWhen: stepCountIs(SUBAGENT_STEP_LIMIT),
   callOptionsSchema,

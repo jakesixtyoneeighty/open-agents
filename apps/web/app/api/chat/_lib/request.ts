@@ -1,4 +1,5 @@
 import type { WebAgentUIMessage } from "@/app/types";
+import { taskBriefSubmissionSchema } from "@/lib/task-brief";
 
 export interface ChatRequestBody {
   messages: WebAgentUIMessage[];
@@ -32,6 +33,42 @@ export async function parseChatRequestBody(
 ): Promise<ParseChatRequestResult> {
   try {
     const body = (await req.json()) as ChatRequestBody;
+    if (!Array.isArray(body?.messages)) {
+      return {
+        ok: false,
+        response: Response.json(
+          { error: "Messages are required" },
+          { status: 400 },
+        ),
+      };
+    }
+    for (const message of body.messages) {
+      if (!message || !Array.isArray(message.parts)) {
+        return {
+          ok: false,
+          response: Response.json(
+            { error: "Invalid message" },
+            { status: 400 },
+          ),
+        };
+      }
+      let briefCount = 0;
+      for (const part of message.parts) {
+        if (part?.type !== "data-task-brief") continue;
+        briefCount++;
+        const parsed = taskBriefSubmissionSchema.safeParse(part.data);
+        if (message.role !== "user" || briefCount > 1 || !parsed.success) {
+          return {
+            ok: false,
+            response: Response.json(
+              { error: "Invalid task brief" },
+              { status: 400 },
+            ),
+          };
+        }
+        part.data = parsed.data;
+      }
+    }
     return { ok: true, body };
   } catch {
     return {

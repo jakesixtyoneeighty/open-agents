@@ -7,6 +7,7 @@ import type {
   UIMessage,
 } from "ai";
 import type { webAgent } from "./config";
+import type { TaskBriefSubmission } from "@/lib/task-brief";
 
 export type WebAgent = typeof webAgent;
 export type WebAgentCallOptions = Parameters<
@@ -66,6 +67,7 @@ export type WebAgentWorkspaceStatusData = {
 };
 
 export type WebAgentDataParts = {
+  "task-brief": TaskBriefSubmission;
   commit: WebAgentCommitData;
   pr: WebAgentPrData;
   snippet: WebAgentSnippetData;

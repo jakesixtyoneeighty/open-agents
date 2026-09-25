@@ -3,6 +3,9 @@ import { withBotId } from "botid/next/config";
 import { withWorkflow } from "workflow/next";
 
 const nextConfig: NextConfig = {
+  outputFileTracingIncludes: {
+    "/*": ["./lib/skills/task-planning/SKILL.md"],
+  },
   images: {
     remotePatterns: [
       {

@@ -154,6 +154,7 @@ let agentResponseHeaders: Record<string, string> | undefined;
 let agentResponseBody: unknown;
 let agentProviderMetadata: Record<string, unknown> | undefined;
 let agentInputMessages: unknown;
+let agentCallOptions: Record<string, unknown> | undefined;
 
 function buildAgentSteps() {
   return [
@@ -220,8 +221,15 @@ mock.module("./chat-post-finish", () => spies);
 mock.module("@/app/config", () => ({
   webAgent: {
     tools: {},
-    stream: async ({ messages }: { messages: unknown }) => {
+    stream: async ({
+      messages,
+      options,
+    }: {
+      messages: unknown;
+      options: Record<string, unknown>;
+    }) => {
       agentInputMessages = messages;
+      agentCallOptions = options;
       return {
         toUIMessageStream: (opts: {
           sendStart?: boolean;
@@ -337,6 +345,9 @@ mock.module("ai", () => ({
 }));
 
 mock.module("@open-agents/agent", () => ({}));
+mock.module("@/lib/skills/task-planning", () => ({
+  loadTaskPlanningSkill: async () => "Plan only; wait for Build this plan.",
+}));
 
 mock.module("@/lib/db/sessions", () => ({
   getChatById: async () => testChatRecord,
@@ -393,6 +404,7 @@ beforeEach(() => {
   agentResponseBody = undefined;
   agentProviderMetadata = undefined;
   agentInputMessages = undefined;
+  agentCallOptions = undefined;
   streamOnFinishCallback = undefined;
   testSessionRecord = {
     id: "session-1",
@@ -425,6 +437,66 @@ beforeEach(() => {
 });
 
 describe("runAgentWorkflow", () => {
+  test("planning reaches agent options and cannot auto-commit or create a PR", async () => {
+    await runAgentWorkflow(
+      makeOptions({
+        autoCommitEnabled: true,
+        autoCreatePrEnabled: true,
+        messages: [
+          {
+            id: "brief-1",
+            role: "user",
+            parts: [
+              { type: "text", text: "Plan a booking form" },
+              {
+                type: "data-task-brief",
+                data: { action: "plan", brief: { goal: "Booking form" } },
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(agentCallOptions?.planningMode).toBe(true);
+    expect(agentCallOptions?.customInstructions).toContain("Plan only");
+    expect(JSON.stringify(agentInputMessages)).toContain("Booking form");
+    expect(spies.runAutoCommitStep).not.toHaveBeenCalled();
+    expect(spies.runAutoCreatePrStep).not.toHaveBeenCalled();
+  });
+
+  test("a build snapshot exits planning and restores normal git preferences", async () => {
+    await runAgentWorkflow(
+      makeOptions({
+        autoCommitEnabled: true,
+        messages: [
+          {
+            id: "brief-1",
+            role: "user",
+            parts: [
+              {
+                type: "data-task-brief",
+                data: { action: "plan", brief: { goal: "Booking form" } },
+              },
+            ],
+          },
+          {
+            id: "build-1",
+            role: "user",
+            parts: [
+              {
+                type: "data-task-brief",
+                data: { action: "build", brief: { goal: "Booking form" } },
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(agentCallOptions?.planningMode).toBe(false);
+    expect(agentCallOptions?.customInstructions).not.toContain("Plan only");
+    expect(spies.runAutoCommitStep).toHaveBeenCalledTimes(1);
+  });
+
   test("throws when no messages provided", async () => {
     try {
       await runAgentWorkflow(makeOptions({ messages: [] }));

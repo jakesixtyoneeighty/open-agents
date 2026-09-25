@@ -1,4 +1,5 @@
 "use client";
+import { TaskBriefSummary } from "@/components/task-brief/task-brief-summary";
 
 import { isReasoningUIPart, isToolUIPart } from "ai";
 import {
@@ -479,6 +480,10 @@ function SharedMessage({
             </div>
           </div>
         );
+      }
+
+      if (p.type === "data-task-brief") {
+        return <TaskBriefSummary key={`${m.id}-${i}`} submission={p.data} />;
       }
 
       if (p.type === "data-snippet") {

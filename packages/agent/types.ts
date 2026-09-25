@@ -1,7 +1,7 @@
 import type { SandboxState } from "@open-agents/sandbox";
 import type { LanguageModel } from "ai";
 import { z } from "zod";
-import type { AgentSandboxContext } from "./open-agent";
+import type { AgentGitHubContext, AgentSandboxContext } from "./open-agent";
 import type { SkillMetadata } from "./skills/types";
 
 export const todoStatusSchema = z.enum(["pending", "in_progress", "completed"]);
@@ -21,6 +21,7 @@ export interface AgentContext {
   skills?: SkillMetadata[];
   model: LanguageModel;
   subagentModel?: LanguageModel;
+  github?: AgentGitHubContext;
 }
 
 export interface SandboxExecutionContext {

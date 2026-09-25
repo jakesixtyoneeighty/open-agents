@@ -22,6 +22,12 @@ import { TodoRenderer } from "./renderers/todo-renderer";
 import { AskUserQuestionRenderer } from "./renderers/ask-user-question-renderer";
 import { FetchRenderer } from "./renderers/fetch-renderer";
 import { SkillRenderer } from "./renderers/skill-renderer";
+import { WebSearchRenderer } from "./renderers/web-search-renderer";
+import {
+  CheckLogsRenderer,
+  PrCommentsRenderer,
+  PrStatusRenderer,
+} from "./renderers/github-renderer";
 
 export type ToolCallProps = {
   part: WebAgentUIToolPart;
@@ -76,6 +82,14 @@ export function ToolCall({
       return <FetchRenderer part={part} state={state} {...approvalProps} />;
     case "tool-skill":
       return <SkillRenderer part={part} state={state} {...approvalProps} />;
+    case "tool-web_search":
+      return <WebSearchRenderer part={part} state={state} {...approvalProps} />;
+    case "tool-github_pr_status":
+      return <PrStatusRenderer part={part} state={state} />;
+    case "tool-github_check_logs":
+      return <CheckLogsRenderer part={part} state={state} />;
+    case "tool-github_pr_comments":
+      return <PrCommentsRenderer part={part} state={state} />;
     default:
       return (
         <DefaultRenderer
