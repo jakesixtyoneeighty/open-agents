@@ -62,7 +62,7 @@ const callOptionsSchema = z.object({
 export type ExecutorCallOptions = z.infer<typeof callOptionsSchema>;
 
 export const EXECUTOR_MODEL: ModelConfig = {
-  id: "anthropic/claude-opus-5.5",
+  id: "stealth/pixel-canary",
   reasoningEffort: "high",
 };
 

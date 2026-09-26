@@ -180,15 +180,15 @@ describe("model options", () => {
         provider: "openai",
       },
       {
-        id: "openai/gpt-6-astra",
-        label: "GPT-6 Astra",
-        shortLabel: "GPT-6 Astra",
+        id: "stealth/pixel-canary",
+        label: "Pixel Canary",
+        shortLabel: "Pixel Canary",
         isVariant: false,
-        provider: "openai",
+        provider: "stealth",
       },
     ];
 
-    expect(getDefaultModelOptionId(options)).toBe("openai/gpt-6-astra");
+    expect(getDefaultModelOptionId(options)).toBe("stealth/pixel-canary");
   });
 
   test("getDefaultModelOptionId falls back to first option when default is missing", () => {

@@ -67,7 +67,7 @@ const callOptionsSchema = z.object({
 
 export type OpenAgentCallOptions = z.infer<typeof callOptionsSchema>;
 
-export const defaultModelLabel = "openai/gpt-6-astra" as const;
+export const defaultModelLabel = "stealth/pixel-canary" as const;
 /** Reasoning level for the main agent, whichever model the user selects. */
 const MAIN_REASONING_EFFORT: ReasoningEffort = "high";
 export const defaultModel = gateway(defaultModelLabel, {

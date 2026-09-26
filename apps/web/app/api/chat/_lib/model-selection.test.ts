@@ -6,13 +6,13 @@ import { resolveChatModelSelection } from "./model-selection";
 describe("resolveChatModelSelection", () => {
   test("returns direct model ids unchanged", () => {
     const selection = resolveChatModelSelection({
-      selectedModelId: "openai/gpt-5",
+      selectedModelId: "stealth/pixel-canary",
       modelVariants: [],
       missingVariantLabel: "Selected model variant",
     });
 
     expect(selection).toEqual({
-      id: "openai/gpt-5",
+      id: "stealth/pixel-canary",
     });
   });
 
@@ -21,7 +21,7 @@ describe("resolveChatModelSelection", () => {
       {
         id: "variant:openai-medium",
         name: "OpenAI Medium",
-        baseModelId: "openai/gpt-5",
+        baseModelId: "stealth/pixel-canary",
         providerOptions: {
           reasoningEffort: "medium",
         },
@@ -35,11 +35,10 @@ describe("resolveChatModelSelection", () => {
     });
 
     expect(selection).toEqual({
-      id: "openai/gpt-5",
+      id: "stealth/pixel-canary",
       providerOptionsOverrides: {
-        openai: {
+        stealth: {
           reasoningEffort: "medium",
-          store: false,
         },
       },
     });
