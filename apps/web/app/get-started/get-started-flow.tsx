@@ -21,6 +21,7 @@ import { authClient } from "@/lib/auth/client";
 import { BRAND } from "@/lib/brand";
 import { sanitizeInternalRedirect } from "@/lib/redirect-safety";
 import { skipGitHubOnboarding } from "./actions";
+import { GetStartedSignOut } from "./get-started-sign-out";
 
 type StepId = 1 | 2;
 
@@ -186,6 +187,10 @@ export function GetStartedFlow() {
                 </div>
               );
             })}
+          </div>
+
+          <div className="mt-6 flex justify-end">
+            <GetStartedSignOut />
           </div>
         </div>
       </div>
