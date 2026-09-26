@@ -8,6 +8,7 @@ import {
   getGitHubUsername,
   hasGitHubAccount,
 } from "@/lib/github/users";
+import { getGitHubAppSlug } from "@/lib/github/urls";
 import { sanitizeInternalRedirect } from "@/lib/redirect-safety";
 import { getServerSession } from "@/lib/session/get-server-session";
 
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest): Promise<Response> {
     return NextResponse.redirect(new URL("/", req.url));
   }
 
-  const appSlug = process.env.NEXT_PUBLIC_GITHUB_APP_SLUG;
+  const appSlug = getGitHubAppSlug();
   if (!appSlug) {
     const fallbackUrl = new URL(redirectTo, req.url);
     fallbackUrl.searchParams.set("github", "app_not_configured");

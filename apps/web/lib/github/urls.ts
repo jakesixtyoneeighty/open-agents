@@ -66,11 +66,22 @@ export function parseGitHubUrl(
   return null;
 }
 
+/**
+ * Server-side GitHub App slug. Prefers the runtime-only GITHUB_APP_SLUG
+ * because NEXT_PUBLIC_* values are inlined at build time.
+ */
+export function getGitHubAppSlug(): string | null {
+  const slug =
+    process.env.GITHUB_APP_SLUG?.trim() ||
+    process.env.NEXT_PUBLIC_GITHUB_APP_SLUG?.trim();
+  return slug || null;
+}
+
 export function getInstallationManageUrl(
   installationId: number,
   fallbackUrl?: string | null,
 ): string | null {
-  const appSlug = process.env.NEXT_PUBLIC_GITHUB_APP_SLUG;
+  const appSlug = getGitHubAppSlug();
 
   if (appSlug) {
     return `https://github.com/apps/${appSlug}/installations/${installationId}`;

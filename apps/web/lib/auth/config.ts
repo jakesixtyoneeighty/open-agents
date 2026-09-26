@@ -145,6 +145,10 @@ export const auth = betterAuth({
       enabled: true,
       trustedProviders: ["vercel", "github"],
       allowDifferentEmails: true,
+      // Users only come from trusted OAuth providers (no email/password), so
+      // their local emailVerified flag may be false. Without this, signing in
+      // with GitHub after a Vercel sign-in fails with account_not_linked.
+      requireLocalEmailVerified: false,
     },
   },
 
