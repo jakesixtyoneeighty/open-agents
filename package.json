@@ -9,6 +9,7 @@
     "sandbox:snapshot-base": "node scripts/vercel-refresh-base-snapshot.ts",
     "typecheck": "turbo typecheck",
     "check": "ultracite check",
+    "lint": "ultracite check",
     "fix": "ultracite fix",
     "ci": "pnpm check && pnpm typecheck && pnpm test:isolated && pnpm --dir apps/web db:check",
     "test:isolated": "node scripts/test-isolated.ts",
