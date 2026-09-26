@@ -41,7 +41,7 @@
     "@vercel/analytics": "^1.4.1",
     "@vercel/blob": "^2.8.0",
     "@vercel/oidc": "^2.0.0",
-    "@workflow/ai": "5.0.0-beta.4",
+    "@workflow/ai": "5.0.0-beta.16",
     "ai": "catalog:",
     "arctic": "^3.7.0",
     "better-auth": "^1.6.5",
@@ -66,7 +66,7 @@
     "swr": "^2.3.8",
     "tailwind-merge": "^3.4.0",
     "vaul": "^1.1.2",
-    "workflow": "5.0.0-beta.5",
+    "workflow": "5.0.0-beta.56",
     "zod": "catalog:"
   },
   "devDependencies": {
