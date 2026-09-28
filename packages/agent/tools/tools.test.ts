@@ -153,6 +153,8 @@ describe("tools execute behavior", () => {
       startLine: 2,
       endLine: 3,
       content: "2: line-2\n3: line-3",
+      columnOffset: 0,
+      clipped: false,
     });
   });
 

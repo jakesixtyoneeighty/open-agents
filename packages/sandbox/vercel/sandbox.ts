@@ -13,6 +13,10 @@ import type {
   VercelSandboxConnectConfig,
 } from "./config.ts";
 import type { VercelState } from "./state.ts";
+import {
+  commandOutputWindow,
+  previewCommandOutput,
+} from "../command-output.ts";
 
 const MAX_OUTPUT_LENGTH = 50_000;
 const DEFAULT_WORKING_DIRECTORY = "/vercel/sandbox";
@@ -903,7 +907,7 @@ ${hostLine}${portLines}${runtimeEnvLine}`;
     command: string,
     cwd: string,
     timeoutMs: number,
-    options?: { signal?: AbortSignal },
+    options?: { signal?: AbortSignal; outputLimit?: number },
   ): Promise<ExecResult> {
     try {
       const timeoutSignal = AbortSignal.timeout(timeoutMs);
@@ -922,8 +926,14 @@ ${hostLine}${portLines}${runtimeEnvLine}`;
         result.stdout(),
         result.stderr(),
       ]);
-      const stdout = truncateCommandOutput(rawStdout);
-      const stderr = truncateCommandOutput(rawStderr);
+      const stdout =
+        options?.outputLimit === undefined
+          ? truncateCommandOutput(rawStdout)
+          : previewCommandOutput(rawStdout, options.outputLimit);
+      const stderr =
+        options?.outputLimit === undefined
+          ? truncateCommandOutput(rawStderr)
+          : previewCommandOutput(rawStderr, options.outputLimit);
 
       return {
         success: result.exitCode === 0,
@@ -931,6 +941,9 @@ ${hostLine}${portLines}${runtimeEnvLine}`;
         stdout: stdout.output,
         stderr: stderr.output,
         truncated: stdout.truncated || stderr.truncated,
+        ...(options?.outputLimit === undefined
+          ? {}
+          : { commandId: result.cmdId }),
       };
     } catch (error) {
       if (error instanceof Error && error.name === "TimeoutError") {
@@ -955,6 +968,26 @@ ${hostLine}${portLines}${runtimeEnvLine}`;
         truncated: false,
       };
     }
+  }
+
+  async readCommandOutput(
+    commandId: string,
+    options: {
+      stream: "stdout" | "stderr";
+      offset: number;
+      limit: number;
+      signal?: AbortSignal;
+    },
+  ) {
+    const signal = options.signal
+      ? AbortSignal.any([options.signal, AbortSignal.timeout(30_000)])
+      : AbortSignal.timeout(30_000);
+    const command = await this.session.getCommand(commandId, { signal });
+    const output =
+      options.stream === "stdout"
+        ? await command.stdout({ signal })
+        : await command.stderr({ signal });
+    return commandOutputWindow(output, options.offset, options.limit);
   }
 
   /**

@@ -1,7 +1,7 @@
 import type { SandboxState } from "@open-agents/sandbox";
 import { stepCountIs, ToolLoopAgent, type ToolSet } from "ai";
 import { z } from "zod";
-import { addCacheControl } from "./context-management";
+import { projectReadMessages } from "./context-management/read-projection";
 import {
   type GatewayModelId,
   gateway,
@@ -16,6 +16,7 @@ import { getPlanningTools } from "./planning";
 import {
   askUserQuestionTool,
   bashTool,
+  commandOutputTool,
   editFileTool,
   globTool,
   grepTool,
@@ -93,6 +94,7 @@ const baseTools = {
   grep: grepTool(),
   glob: globTool(),
   bash: bashTool(),
+  command_output: commandOutputTool,
   task: taskTool,
   ask_user_question: askUserQuestionTool,
   skill: skillTool,
@@ -125,14 +127,9 @@ export function createOpenAgent<
     tools,
     stopWhen: stepCountIs(1),
     callOptionsSchema,
-    prepareStep: ({ messages, model, steps: _steps }) => {
-      return {
-        messages: addCacheControl({
-          messages,
-          model,
-        }),
-      };
-    },
+    prepareStep: ({ messages }) => ({
+      messages: projectReadMessages(messages),
+    }),
     prepareCall: ({ options, ...settings }) => {
       if (!options) {
         throw new Error("Open Agent requires call options with sandbox.");
@@ -177,14 +174,11 @@ export function createOpenAgent<
       return {
         ...settings,
         model: callModel,
-        tools: addCacheControl({
-          tools: options.qualityReviewMode
-            ? getQualityReviewTools(settings.tools ?? tools)
-            : options.planningMode
-              ? getPlanningTools(settings.tools ?? tools)
-              : (settings.tools ?? tools),
-          model: callModel,
-        }),
+        tools: options.qualityReviewMode
+          ? getQualityReviewTools(settings.tools ?? tools)
+          : options.planningMode
+            ? getPlanningTools(settings.tools ?? tools)
+            : (settings.tools ?? tools),
         instructions,
         experimental_context: {
           sandbox,

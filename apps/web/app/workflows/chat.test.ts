@@ -345,7 +345,10 @@ mock.module("ai", () => ({
     }),
 }));
 
-mock.module("@open-agents/agent", () => ({}));
+mock.module(
+  "@open-agents/agent",
+  () => import("../../../../packages/agent/efficiency"),
+);
 mock.module("@/lib/skills/task-planning", () => ({
   loadTaskPlanningSkill: async () => "Plan only; wait for Build this plan.",
 }));
@@ -1078,6 +1081,15 @@ describe("runAgentWorkflow", () => {
       outputTokens: 10,
       totalTokens: 30,
     });
+    expect(
+      (persistedMessage.metadata as Record<string, unknown>).efficiency,
+    ).toMatchObject({
+      version: 1,
+      steps: 2,
+      inputTokens: 20,
+      outputTokens: 10,
+      costUsd: null,
+    });
   });
 
   test("streams and persists cumulative gateway cost", async () => {
@@ -1207,6 +1219,13 @@ describe("runAgentWorkflow", () => {
       expectedTotalMessageCost,
       10,
     );
+    expect(
+      (persistedMessage.metadata as Record<string, unknown>).efficiency,
+    ).toMatchObject({
+      steps: null,
+      inputTokens: null,
+      costUsd: null,
+    });
   });
 
   test("omits cost metadata when provider does not report gateway cost", async () => {

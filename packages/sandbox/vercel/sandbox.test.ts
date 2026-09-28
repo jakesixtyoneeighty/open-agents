@@ -39,6 +39,7 @@ const createCalls: Array<Record<string, unknown>> = [];
 const getCalls: Array<Record<string, unknown>> = [];
 const updateNetworkPolicyCalls: Array<Record<string, unknown>> = [];
 const runCommandCalls: MockRunCommandParams[] = [];
+const getCommandCalls: Array<{ session: string; commandId: string }> = [];
 const writeFilesCalls: Array<{ path: string; content: Buffer }[]> = [];
 let readFileToBufferResult: Buffer | null = Buffer.from("");
 
@@ -87,6 +88,13 @@ function buildMockSession(name: string, state: MockSessionState = {}) {
       runCommandCalls.push(params);
       lastRunCommandEnv = params.env;
       return runCommandMock(params);
+    },
+    getCommand: async (commandId: string) => {
+      getCommandCalls.push({
+        session: state.sessionId ?? `${name}-session`,
+        commandId,
+      });
+      return runCommandMock();
     },
     writeFiles: async (files: { path: string; content: Buffer }[]) => {
       writeFilesCalls.push(files);
@@ -159,6 +167,7 @@ beforeEach(() => {
   getCalls.length = 0;
   updateNetworkPolicyCalls.length = 0;
   runCommandCalls.length = 0;
+  getCommandCalls.length = 0;
   writeFilesCalls.length = 0;
   readFileToBufferResult = Buffer.from("");
   portDomains.clear();
@@ -252,6 +261,40 @@ describe("VercelSandbox.environmentDetails", () => {
 });
 
 describe("VercelSandbox.exec", () => {
+  test("bounded previews retain exit status and page SDK logs within the connected session", async () => {
+    const fullLog = "BEGIN\n" + "x".repeat(70_000) + "END";
+    runCommandMock = async () => ({
+      exitCode: 1,
+      cmdId: "cmd-large",
+      stdout: async () => fullLog,
+      stderr: async () => "failed",
+    });
+    const sandbox = await sandboxModule.VercelSandbox.connect("sbx-test", {
+      ports: [3000],
+      remainingTimeout: 0,
+    });
+    const result = await sandbox.exec("test-command", "/vercel/sandbox", 5000, {
+      outputLimit: 8000,
+    });
+    expect(result).toMatchObject({
+      commandId: "cmd-large",
+      success: false,
+      exitCode: 1,
+      truncated: true,
+    });
+    expect(result.stdout.length).toBe(8000);
+    expect(result.stdout.endsWith("END")).toBe(true);
+    const executed = runCommandCalls.length;
+    const page = await sandbox.readCommandOutput("cmd-large", {
+      stream: "stdout",
+      offset: 8000,
+      limit: 8000,
+    });
+    expect(page.content).toBe(fullLog.slice(8000, 16_000));
+    expect(page.nextOffset).toBe(16_000);
+    expect(runCommandCalls.length).toBe(executed);
+    expect(getCommandCalls.at(-1)?.commandId).toBe("cmd-large");
+  });
   test("preserves stderr output from failed commands", async () => {
     runCommandMock = async () => ({
       exitCode: 128,

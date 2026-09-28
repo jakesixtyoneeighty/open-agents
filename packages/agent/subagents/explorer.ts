@@ -3,6 +3,8 @@ import { stepCountIs, ToolLoopAgent } from "ai";
 import { gateway, type ModelConfig } from "../models";
 import { z } from "zod";
 import { bashTool } from "../tools/bash";
+import { commandOutputTool } from "../tools/command-output";
+import { projectReadMessages } from "../context-management/read-projection";
 import { globTool } from "../tools/glob";
 import { grepTool } from "../tools/grep";
 import { readFileTool } from "../tools/read";
@@ -92,10 +94,12 @@ export const explorerSubagent = new ToolLoopAgent({
     grep: grepTool(),
     glob: globTool(),
     bash: bashTool(),
+    command_output: commandOutputTool,
     web_search: webSearchTool,
   },
   stopWhen: stepCountIs(SUBAGENT_STEP_LIMIT),
   callOptionsSchema,
+  prepareStep: ({ messages }) => ({ messages: projectReadMessages(messages) }),
   prepareCall: ({ options, ...settings }) => {
     if (!options) {
       throw new Error("Explorer subagent requires task call options.");

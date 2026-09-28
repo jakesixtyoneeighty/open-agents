@@ -83,6 +83,10 @@ Hard-won knowledge from building this codebase. When you make a mistake or disco
 
 ## Chat / Streaming UI
 
+- Token-efficiency changes must be applied both to the workflow's one-step main agent and each child agent's internal loop. Project only outgoing model messages; keep complete tool results in persisted/UI history. `toModelOutput` runs in live tool loops and UI-history conversion, so it can remove duplicate acknowledgements without changing the UI result.
+- Gateway caching is centralized in `packages/agent/models.ts`; do not add manual Anthropic cache markers on top. Numeric efficiency metadata includes child usage separately, propagates unknown fields as null, and must not add child durations to parent elapsed time because those intervals overlap.
+- Bounded read/log output needs an exact continuation, including Unicode-safe long-line boundaries. Use the SDK's session-scoped command logs to recover output; do not rerun commands or weaken command approval to retrieve diagnostics.
+
 - Task brief snapshots live in user-message `data-task-brief` parts. Preserve them through resend, transcript rendering, sharing/export, and model conversion; dropping them on retry can silently exit planning. Derive plan/build mode only from user snapshots, and filter executable tools plus git automation on the server.
 - A hosted planning skill must ship with the web deployment: a `SKILL.md` in this repository's `.agents/skills` is not automatically available in arbitrary cloned sandbox repositories. Load the bundled skill inside a workflow step and explicitly trace the asset.
 

@@ -27,15 +27,19 @@ export function ReadRenderer({
     rawFilePath === "..." ? rawFilePath : toRelativePath(rawFilePath, cwd);
 
   const output = part.state === "output-available" ? part.output : undefined;
-  const totalLines = output?.totalLines;
-  const startLine = output?.startLine;
-  const endLine = output?.endLine;
-  const fileContent = output?.content;
+  const readOutput = output?.success === true ? output : undefined;
+  const totalLines = readOutput?.totalLines;
+  const startLine = readOutput?.startLine;
+  const endLine = readOutput?.endLine;
+  const fileContent = readOutput?.content;
   const isPartialRead =
     startLine !== undefined &&
     endLine !== undefined &&
     totalLines !== undefined &&
-    (startLine > 1 || endLine < totalLines);
+    (startLine > 1 ||
+      endLine < totalLines ||
+      readOutput?.clipped ||
+      (readOutput?.columnOffset ?? 0) > 0);
   const outputError =
     output?.success === false ? (output?.error ?? "Read failed") : undefined;
 

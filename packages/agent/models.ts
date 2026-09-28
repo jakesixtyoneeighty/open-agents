@@ -140,7 +140,11 @@ export function getProviderOptionsForModel(
   providerOptionsOverrides?: ProviderOptionsByProvider,
   reasoningEffort?: ReasoningEffort,
 ): ProviderOptionsByProvider {
-  const defaultProviderOptions: ProviderOptionsByProvider = {};
+  // Shared by main and child agents. Gateway handles provider-specific markers;
+  // providers with implicit caching keep the same prompt. Variants may opt out.
+  const defaultProviderOptions: ProviderOptionsByProvider = {
+    gateway: { caching: "auto" },
+  };
 
   // Apply anthropic defaults
   if (modelId.startsWith("anthropic/")) {
@@ -201,6 +205,11 @@ export function getProviderOptionsForModel(
     defaultProviderOptions,
     providerOptionsOverrides,
   );
+
+  // `false` is our local opt-out, not a value understood by Gateway.
+  if (providerOptions.gateway?.caching === false) {
+    delete providerOptions.gateway.caching;
+  }
 
   // Enforce OpenAI non-persistence even when custom provider overrides are present.
   if (modelId.startsWith("openai/")) {

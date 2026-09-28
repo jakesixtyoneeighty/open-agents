@@ -7,6 +7,7 @@ import type {
   UIMessage,
 } from "ai";
 import type { webAgent } from "./config";
+import type { EfficiencyMetrics } from "@open-agents/agent";
 import type { QualityReviewSubmission } from "@/lib/quality-review";
 import type { TaskBriefSubmission } from "@/lib/task-brief";
 
@@ -21,6 +22,7 @@ export type WebAgentStepFinishMetadata = {
 };
 
 export type WebAgentMessageMetadata = {
+  efficiency?: EfficiencyMetrics;
   selectedModelId?: string;
   modelId?: string;
   lastStepUsage?: LanguageModelUsage;

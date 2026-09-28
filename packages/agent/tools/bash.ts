@@ -94,7 +94,8 @@ USAGE:
 - NEVER prefix commands with "cd <working-directory> &&" or any path — this is the most common mistake and is always wrong
 - Use the cwd parameter ONLY with a workspace-relative subdirectory when you need to run in a different directory
 - Commands automatically timeout after ~2 minutes
-- Combined stdout/stderr output is truncated after ~50,000 characters
+- Returns up to 8000 characters per stream, preserving the beginning and end
+- When output is truncated and commandId is available, use command_output for more; do not rerun a command just to recover logs
 
 DO NOT USE FOR:
 - File reading (cat, head, tail) - use readFileTool
@@ -160,6 +161,7 @@ EXAMPLES:
 
       const result = await sandbox.exec(command, workingDir, TIMEOUT_MS, {
         signal: abortSignal,
+        ...(sandbox.readCommandOutput ? { outputLimit: 8000 } : {}),
       });
 
       return {
@@ -168,6 +170,7 @@ EXAMPLES:
         stdout: result.stdout,
         stderr: result.stderr,
         ...(result.truncated && { truncated: true }),
+        ...(result.commandId ? { commandId: result.commandId } : {}),
       };
     },
   });

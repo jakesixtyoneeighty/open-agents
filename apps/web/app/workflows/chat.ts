@@ -1074,6 +1074,8 @@ const runAgentStep = async (
   const stepStartedAt = new Date();
   const { webAgent } = await import("@/app/config");
   const { createScreenshotStore } = await import("@/lib/screenshots/storage");
+  const { addEfficiency, measureEfficiency, gatewayCost } =
+    await import("@open-agents/agent");
 
   const abortController = new AbortController();
   const stopMonitor = startStopMonitor(workflowRunId, abortController);
@@ -1098,6 +1100,23 @@ const runAgentStep = async (
     let stepFinishReasons = existingStepFinishReasons;
     let totalMessageUsage = existingTotalMessageUsage;
     let totalMessageCost = existingTotalMessageCost;
+    let efficiency =
+      lastOriginalMessage?.role === "assistant"
+        ? lastOriginalMessage.metadata?.efficiency
+        : undefined;
+    // Legacy turns may already contain unmeasured steps; do not label a suffix
+    // as a complete measurement of that turn.
+    if (
+      !efficiency &&
+      (existingStepFinishReasons.length > 0 ||
+        existingTotalMessageUsage !== undefined ||
+        existingTotalMessageCost !== undefined)
+    ) {
+      efficiency = {
+        ...measureEfficiency(undefined),
+        steps: existingStepFinishReasons.length || null,
+      };
+    }
 
     const result = await webAgent.stream({
       messages,
@@ -1117,6 +1136,14 @@ const runAgentStep = async (
       sendFinish: false,
       messageMetadata: ({ part: streamPart }) => {
         if (streamPart.type === "finish-step") {
+          efficiency = addEfficiency(
+            efficiency,
+            measureEfficiency(
+              streamPart.usage,
+              gatewayCost(streamPart.providerMetadata),
+              Date.now() - stepStartedAt.getTime(),
+            ),
+          );
           lastStepUsage = streamPart.usage;
           if (streamPart.usage) {
             totalMessageUsage = totalMessageUsage
@@ -1136,6 +1163,7 @@ const runAgentStep = async (
             },
           ];
           return {
+            efficiency,
             selectedModelId,
             modelId,
             lastStepUsage,
@@ -1170,6 +1198,8 @@ const runAgentStep = async (
         modelId,
       ),
     };
+
+    responseMessage.metadata = { ...responseMessage.metadata, efficiency };
 
     const [stepUsage, finishReason, rawFinishReason, response, steps] =
       await Promise.all([

@@ -70,6 +70,8 @@ export interface ExecResult {
   stdout: string;
   stderr: string;
   truncated: boolean;
+  /** SDK-retained log in this sandbox session; absent on unsupported backends. */
+  commandId?: string;
 }
 
 /**
@@ -133,8 +135,23 @@ export interface Sandbox {
     command: string,
     cwd: string,
     timeoutMs: number,
-    options?: { signal?: AbortSignal },
+    options?: { signal?: AbortSignal; outputLimit?: number },
   ): Promise<ExecResult>;
+
+  readCommandOutput?(
+    commandId: string,
+    options: {
+      stream: "stdout" | "stderr";
+      offset: number;
+      limit: number;
+      signal?: AbortSignal;
+    },
+  ): Promise<{
+    content: string;
+    totalCharacters: number;
+    offset: number;
+    nextOffset?: number;
+  }>;
 
   /**
    * Execute a shell command in detached mode (returns immediately).

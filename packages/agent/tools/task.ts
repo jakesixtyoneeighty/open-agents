@@ -13,6 +13,13 @@ import {
 import { SUBAGENT_STEP_LIMIT } from "../subagents/constants";
 import { sumLanguageModelUsage } from "../usage";
 import {
+  addEfficiency,
+  efficiencyMetricsSchema,
+  gatewayCost,
+  measureEfficiency,
+  type EfficiencyMetrics,
+} from "../efficiency";
+import {
   getScreenshotStore,
   type TaskScreenshot,
   taskScreenshotSchema,
@@ -89,6 +96,7 @@ export const taskOutputSchema = z.object({
   final: z.custom<ModelMessage[]>().optional(),
   usage: z.custom<LanguageModelUsage>().optional(),
   screenshots: z.array(taskScreenshotSchema).optional(),
+  efficiency: efficiencyMetricsSchema.optional(),
 });
 
 export type TaskToolOutput = z.infer<typeof taskOutputSchema>;
@@ -150,6 +158,8 @@ IMPORTANT:
     });
 
     const startedAt = Date.now();
+    let stepStartedAt = startedAt;
+    let efficiency: EfficiencyMetrics | undefined;
     let toolCallCount = 0;
     let pending: TaskPendingToolCall | undefined;
     let usage: LanguageModelUsage | undefined;
@@ -188,6 +198,16 @@ IMPORTANT:
       }
 
       if (part.type === "finish-step") {
+        const finishedAt = Date.now();
+        efficiency = addEfficiency(
+          efficiency,
+          measureEfficiency(
+            part.usage,
+            gatewayCost(part.providerMetadata),
+            finishedAt - stepStartedAt,
+          ),
+        );
+        stepStartedAt = finishedAt;
         usage = sumLanguageModelUsage(usage, part.usage);
         // Keep the last observed tool call in interim updates so task UIs don't
         // flicker back to an initializing state between subagent steps.
@@ -197,6 +217,7 @@ IMPORTANT:
           usage,
           startedAt,
           modelId: subagentModelId,
+          efficiency,
           ...(screenshots.length > 0 ? { screenshots: [...screenshots] } : {}),
         };
       }
@@ -210,6 +231,7 @@ IMPORTANT:
       usage: finalUsage,
       startedAt,
       modelId: subagentModelId,
+      efficiency,
       ...(screenshots.length > 0 ? { screenshots } : {}),
     };
   },

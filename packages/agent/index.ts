@@ -1,4 +1,11 @@
 export { type GatewayConfig, type GatewayOptions, gateway } from "./models";
+export {
+  addEfficiency,
+  measureEfficiency,
+  efficiencyMetricsSchema,
+  gatewayCost,
+} from "./efficiency";
+export type { EfficiencyMetrics } from "./efficiency";
 export type {
   AgentGitHubContext,
   AgentModelSelection,

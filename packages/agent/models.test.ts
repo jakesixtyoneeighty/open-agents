@@ -46,10 +46,37 @@ describe("shouldApplyOpenAIReasoningDefaults", () => {
 });
 
 describe("getProviderOptionsForModel", () => {
+  test("caching applies to all Gateway model families and respects explicit opt-out", () => {
+    for (const modelId of [
+      "anthropic/claude-sonnet-4.6",
+      "openai/gpt-5.4",
+      "google/gemini-3",
+      "stealth/pixel-canary",
+    ]) {
+      expect(getProviderOptionsForModel(modelId).gateway).toEqual({
+        caching: "auto",
+      });
+    }
+    const options = getProviderOptionsForModel(
+      "openai/gpt-5.4",
+      {
+        gateway: { caching: false, order: ["openai"] },
+        openai: { store: true },
+      },
+      "high",
+    );
+    expect(options.gateway).toEqual({ order: ["openai"] });
+    expect(options.openai).toMatchObject({
+      store: false,
+      reasoningEffort: "high",
+      include: ["reasoning.encrypted_content"],
+    });
+  });
   test("applies adaptive thinking defaults to Anthropic 4.6 models", () => {
     const result = getProviderOptionsForModel("anthropic/claude-sonnet-4.6");
 
     expect(result).toEqual({
+      gateway: { caching: "auto" },
       anthropic: {
         effort: "medium",
         thinking: { type: "adaptive" },
@@ -61,6 +88,7 @@ describe("getProviderOptionsForModel", () => {
     const result = getProviderOptionsForModel("anthropic/claude-opus-4.7");
 
     expect(result).toEqual({
+      gateway: { caching: "auto" },
       anthropic: {
         effort: "medium",
         thinking: { type: "adaptive" },
@@ -72,6 +100,7 @@ describe("getProviderOptionsForModel", () => {
     const result = getProviderOptionsForModel("anthropic/claude-opus-4.5");
 
     expect(result).toEqual({
+      gateway: { caching: "auto" },
       anthropic: {
         thinking: {
           type: "enabled",
@@ -89,6 +118,7 @@ describe("getProviderOptionsForModel", () => {
     });
 
     expect(result).toEqual({
+      gateway: { caching: "auto" },
       openai: {
         reasoningSummary: "detailed",
         include: ["reasoning.encrypted_content"],
@@ -102,6 +132,7 @@ describe("getProviderOptionsForModel", () => {
     const result = getProviderOptionsForModel("openai/gpt-5.4-2026-03-05");
 
     expect(result).toEqual({
+      gateway: { caching: "auto" },
       openai: {
         reasoningSummary: "detailed",
         include: ["reasoning.encrypted_content"],
@@ -120,6 +151,7 @@ describe("getProviderOptionsForModel", () => {
     });
 
     expect(result).toEqual({
+      gateway: { caching: "auto" },
       openai: {
         reasoningEffort: "xhigh",
         reasoningSummary: "auto",
@@ -138,6 +170,7 @@ describe("getProviderOptionsForModel", () => {
     });
 
     expect(result).toEqual({
+      gateway: { caching: "auto" },
       openai: {
         reasoningSummary: "detailed",
         include: ["reasoning.encrypted_content"],
@@ -150,6 +183,7 @@ describe("getProviderOptionsForModel", () => {
     const result = getProviderOptionsForModel("openai/gpt-4o");
 
     expect(result).toEqual({
+      gateway: { caching: "auto" },
       openai: {
         store: false,
       },
