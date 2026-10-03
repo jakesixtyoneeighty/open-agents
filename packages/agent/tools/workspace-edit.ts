@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { WorkspaceEditRequest } from "@open-agents/sandbox";
 import { tool } from "ai";
 import { z } from "zod";
+import { getBrowserScope } from "./browser";
 import { getSandbox } from "./utils";
 import { parseWorkspacePatch } from "./patch-parser";
 import {
@@ -30,8 +31,14 @@ export async function executeWorkspaceEdit(
     const id = createHash("sha256")
       .update(`${toolName}:${toolCallId}`)
       .digest("hex");
+    // Attribution for the user's history view; the scope is host-derived.
+    const scope = getBrowserScope(context);
     return workspaceEditOutputSchema.parse(
-      await sandbox.applyWorkspaceEdit({ ...input, id }),
+      await sandbox.applyWorkspaceEdit({
+        ...input,
+        id,
+        origin: { source: "agent", toolName, ...(scope ? { scope } : {}) },
+      }),
     );
   } catch (error) {
     return {
@@ -138,7 +145,7 @@ All files are checked before writing; return includes changeSetId for user-reque
 export const undoEditTool = tool({
   needsApproval: ({ dryRun }) => !dryRun,
   description:
-    "Undo one completed edit change set when the user requests it. Restores only its files, and refuses if any affected file has changed since that edit. Unrelated files are preserved. History is retained in this sandbox only and may be unavailable after sandbox replacement. Use dryRun for a preview.",
+    "Undo one completed edit change set when the user requests it. Restores only its files, and refuses if any affected file has changed since that edit. Unrelated files are preserved. History is retained in this sandbox only and may be unavailable after sandbox replacement. Use dryRun for a preview. For merging around later edits or restoring a checkpoint, point the user to the History tab.",
   inputSchema: z.object({
     changeSetId: fileRevisionSchema,
     dryRun: z.boolean().optional(),

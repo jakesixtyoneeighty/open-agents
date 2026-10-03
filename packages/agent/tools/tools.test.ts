@@ -1,4 +1,7 @@
-import { createLocalWorkspaceEditor } from "../../sandbox/workspace-edit/test-harness";
+import {
+  createLocalWorkspaceEditor,
+  createLocalWorkspaceHistoryReader,
+} from "../../sandbox/workspace-edit/test-harness";
 import { createLocalWorkspaceSearcher } from "../../sandbox/workspace-search/test-harness";
 import { createLocalCheckSandbox } from "./checks/test-sandbox";
 import { createHash } from "node:crypto";
@@ -152,7 +155,10 @@ describe("tools execute behavior", () => {
   test("coordinated tools integrate revisions, compact results, patching and approved undo", async () => {
     const { sandbox, workingDirectory } = await createFsSandbox();
     await writeFile(path.join(workingDirectory, "a.ts"), "const old = 1;\n");
-    const context = createContext(sandbox);
+    const context = {
+      ...createContext(sandbox),
+      browserScope: "session-1:chat-1:build",
+    };
     const revision = createHash("sha256")
       .update("const old = 1;\n")
       .digest("hex");
@@ -230,6 +236,23 @@ describe("tools execute behavior", () => {
     expect(
       await stat(path.join(workingDirectory, "b.ts")).catch(() => null),
     ).toBeNull();
+    const history = await createLocalWorkspaceHistoryReader(workingDirectory)({
+      history: "list",
+    });
+    if (!history.success || history.history !== "list")
+      throw new Error("history unavailable");
+    expect(
+      history.entries.map((entry) => [entry.origin?.toolName, entry.status]),
+    ).toEqual([
+      ["undo_edit", "active"],
+      ["apply_patch", "reverted"],
+      ["multi_edit", "active"],
+    ]);
+    expect(history.entries[0]?.origin).toEqual({
+      source: "agent",
+      toolName: "undo_edit",
+      scope: "session-1:chat-1:build",
+    });
   });
 
   test("readFileTool returns numbered lines for offset/limit", async () => {

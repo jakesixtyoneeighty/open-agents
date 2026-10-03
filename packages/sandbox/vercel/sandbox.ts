@@ -1,6 +1,12 @@
 import { Sandbox as VercelSandboxSDK } from "@vercel/sandbox";
-import { runRemoteWorkspaceEdit } from "../workspace-edit/remote";
-import type { WorkspaceEditRequest } from "../workspace-edit/types";
+import {
+  runRemoteWorkspaceEdit,
+  runRemoteWorkspaceHistory,
+} from "../workspace-edit/remote";
+import type {
+  WorkspaceEditRequest,
+  WorkspaceHistoryRequest,
+} from "../workspace-edit/types";
 import { runRemoteWorkspaceSearch } from "../workspace-search/remote";
 import type { WorkspaceSearchRequest } from "../workspace-search/types";
 import type { Dirent } from "fs";
@@ -781,6 +787,14 @@ ${hostLine}${portLines}${runtimeEnvLine}`;
 
   applyWorkspaceEdit(request: WorkspaceEditRequest) {
     return runRemoteWorkspaceEdit(this.session, this.workingDirectory, request);
+  }
+
+  readWorkspaceHistory(request: WorkspaceHistoryRequest) {
+    return runRemoteWorkspaceHistory(
+      this.session,
+      this.workingDirectory,
+      request,
+    );
   }
 
   searchWorkspace(

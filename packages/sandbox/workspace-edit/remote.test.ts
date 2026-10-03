@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { runRemoteWorkspaceEdit } from "./remote";
+import { runRemoteWorkspaceEdit, runRemoteWorkspaceHistory } from "./remote";
 
 test("remote edits use an OS lock, SDK payload files and untruncated result reads", async () => {
   const commands: { cmd: string; args: string[] }[] = [];
@@ -65,4 +65,52 @@ test("missing lock/runtime or lost execution result reports an uncertain failure
     operations: [{ kind: "create", path: "a", content: "a" }],
   });
   expect(result).toMatchObject({ success: false, changeSetId: "a".repeat(64) });
+});
+
+test("history reads share the locked worker transport and report lost results", async () => {
+  const commands: { cmd: string }[] = [];
+  let payload = "";
+  const listed = {
+    success: true as const,
+    history: "list" as const,
+    entries: [],
+    retention: {
+      maxEntries: 200,
+      maxBytes: 1,
+      entries: 0,
+      bytes: 0,
+      pruned: 0,
+    },
+    recoveryRequired: [],
+  };
+  const session = {
+    runCommand: async (command: { cmd: string }) => {
+      commands.push(command);
+      return { exitCode: 0 };
+    },
+    writeFiles: async (files: { content: Buffer }[]) => {
+      payload = files[0]?.content.toString() ?? "";
+    },
+    readFileToBuffer: async () => Buffer.from(JSON.stringify(listed)),
+  } as unknown as Parameters<typeof runRemoteWorkspaceHistory>[0];
+  expect(
+    await runRemoteWorkspaceHistory(session, "/repo", { history: "list" }),
+  ).toEqual(listed);
+  expect(JSON.parse(payload)).toEqual({ history: "list" });
+  expect(commands.map((command) => command.cmd)).toEqual([
+    "mkdir",
+    "flock",
+    "rm",
+  ]);
+
+  const lost = {
+    ...session,
+    readFileToBuffer: async () => null,
+  } as unknown as Parameters<typeof runRemoteWorkspaceHistory>[0];
+  expect(
+    await runRemoteWorkspaceHistory(lost, "/repo", { history: "list" }),
+  ).toMatchObject({
+    success: false,
+    error: expect.stringContaining("unavailable"),
+  });
 });

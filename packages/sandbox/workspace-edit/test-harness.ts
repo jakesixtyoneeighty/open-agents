@@ -4,7 +4,12 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { WORKSPACE_EDIT_WORKER } from "./worker-source";
-import type { WorkspaceEditRequest, WorkspaceEditResult } from "./types";
+import type {
+  WorkspaceEditRequest,
+  WorkspaceEditResult,
+  WorkspaceHistoryRequest,
+  WorkspaceHistoryResult,
+} from "./types";
 
 const exec = promisify(execFile);
 
@@ -13,10 +18,25 @@ export function createLocalWorkspaceEditor(
   root: string,
   store = `${root}-edits`,
 ) {
+  const run = createLocalWorker(root, store);
+  return (request: WorkspaceEditRequest, faultSetup = "") =>
+    run(request, faultSetup) as Promise<WorkspaceEditResult>;
+}
+
+export function createLocalWorkspaceHistoryReader(
+  root: string,
+  store = `${root}-edits`,
+) {
+  const run = createLocalWorker(root, store);
+  return (request: WorkspaceHistoryRequest) =>
+    run(request, "") as Promise<WorkspaceHistoryResult>;
+}
+
+function createLocalWorker(root: string, store: string) {
   return async (
-    request: WorkspaceEditRequest,
-    faultSetup = "",
-  ): Promise<WorkspaceEditResult> => {
+    request: WorkspaceEditRequest | WorkspaceHistoryRequest,
+    faultSetup: string,
+  ): Promise<unknown> => {
     await mkdir(store, { recursive: true });
     const input = path.join(store, `request-${randomUUID()}.json`);
     const output = `${input}.result`;
@@ -46,6 +66,6 @@ export function createLocalWorkspaceEditor(
         ...args,
       ]);
     }
-    return JSON.parse(await readFile(output, "utf8")) as WorkspaceEditResult;
+    return JSON.parse(await readFile(output, "utf8"));
   };
 }

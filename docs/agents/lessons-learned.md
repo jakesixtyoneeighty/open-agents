@@ -173,3 +173,11 @@ Hard-won knowledge from building this codebase. When you make a mistake or disco
 - Persist launch intent before spawning and derive ownership from the host chat/task scope. A controller restart must expire uncertain jobs rather than replaying commands from disk.
 - Let a live process-group leader terminate its own group over IPC, so stop does not look up a potentially reused PID or kill by shared port/name. Keep the leader alive through cleanup, and wait for pipe closure before confirming termination. This covers descendants that stay in the group; self-daemonizing commands need separate lifecycle management.
 - Release the controller startup lock before bounded wait requests; holding it for the entire wait delays another caller's stop/status. Drain stdout/stderr after the retention cap so noisy jobs do not block on full pipes.
+
+## Change history and restore
+
+- Reverse a checkpoint by inverting every later journal in order, newest first, including undo/revert journals. Skipping change sets already marked reverted and only inverting the rest reapplies them when their revert is inverted.
+- Count a merge context line as matched only when the whole hunk context is unique from the cursor; the trailing "" segment from a final newline is part of that context, so an append within three lines of a recorded change is a conflict, not a silent merge.
+- Keep the history index as a cache reconciled against the journal directory on every run. Journals from phase 1, from older deployed workers, or from commits whose index save failed must still appear, and an index save must never roll back a committed change.
+- Transcript tool results are not trustworthy restore input: assistant snapshots are upserted from the client. Restore only from sandbox journals.
+- SWR reports `isLoading` while it revalidates even when fallback or cached data exists; render from data when present. A cached history list can predate a newer edit card, so recheck once before telling the user a change is gone.

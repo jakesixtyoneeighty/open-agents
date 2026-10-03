@@ -1,9 +1,16 @@
 // interface
 export type {
   WorkspaceEditOperation,
+  WorkspaceEditOrigin,
   WorkspaceEditRequest,
   WorkspaceEditResult,
   WorkspaceFileChange,
+  WorkspaceHistoryEntry,
+  WorkspaceHistoryFile,
+  WorkspaceHistoryRequest,
+  WorkspaceHistoryResult,
+  WorkspaceHistoryRetention,
+  WorkspaceRevertTarget,
   PatchHunk,
 } from "./workspace-edit/types";
 export type {

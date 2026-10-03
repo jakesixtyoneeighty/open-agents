@@ -6,6 +6,7 @@ import { MultiFileDiff } from "@pierre/diffs/react";
 import { useMemo } from "react";
 import type { ToolRendererProps } from "@/app/lib/render-tool";
 import { defaultDiffOptions } from "@/lib/diffs-config";
+import { CheckpointCardActions } from "@/components/checkpoints/checkpoint-card-actions";
 import { ToolLayout } from "../tool-layout";
 import { FileNamePill } from "../file-name-pill";
 
@@ -57,6 +58,11 @@ export function EditRenderer({
   const mergedState = outputError
     ? { ...state, error: state.error ?? outputError }
     : state;
+  // Older transcripts predate change sets; only completed writes have one.
+  const changeSetId =
+    output?.success === true && typeof output.changeSetId === "string"
+      ? output.changeSetId
+      : undefined;
 
   const showDiff =
     mergedState.approvalRequested ||
@@ -64,12 +70,17 @@ export function EditRenderer({
 
   const expandedContent =
     showDiff && !mergedState.denied ? (
-      <div className="max-h-96 overflow-auto rounded-md border border-border">
-        <MultiFileDiff
-          oldFile={{ name: rawFilePath, contents: oldString }}
-          newFile={{ name: rawFilePath, contents: newString }}
-          options={defaultDiffOptions}
-        />
+      <div className="space-y-2">
+        <div className="max-h-96 overflow-auto rounded-md border border-border">
+          <MultiFileDiff
+            oldFile={{ name: rawFilePath, contents: oldString }}
+            newFile={{ name: rawFilePath, contents: newString }}
+            options={defaultDiffOptions}
+          />
+        </div>
+        {changeSetId ? (
+          <CheckpointCardActions changeSetId={changeSetId} />
+        ) : null}
       </div>
     ) : undefined;
 

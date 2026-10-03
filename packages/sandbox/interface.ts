@@ -2,6 +2,8 @@ import type { Dirent } from "fs";
 import type {
   WorkspaceEditRequest,
   WorkspaceEditResult,
+  WorkspaceHistoryRequest,
+  WorkspaceHistoryResult,
 } from "./workspace-edit/types";
 import type {
   WorkspaceSearchRequest,
@@ -148,6 +150,10 @@ export interface Sandbox {
   applyWorkspaceEdit?(
     request: WorkspaceEditRequest,
   ): Promise<WorkspaceEditResult>;
+  /** Journaled change-set history, read under the edit worker's lock. */
+  readWorkspaceHistory?(
+    request: WorkspaceHistoryRequest,
+  ): Promise<WorkspaceHistoryResult>;
   /** Sandbox-side content/file search with stored, resumable result pages. */
   searchWorkspace?(
     request: WorkspaceSearchRequest,

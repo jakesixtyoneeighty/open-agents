@@ -4,6 +4,7 @@ import { MultiFileDiff } from "@pierre/diffs/react";
 import { Files } from "lucide-react";
 import type { ToolRendererProps } from "@/app/lib/render-tool";
 import { defaultDiffOptions } from "@/lib/diffs-config";
+import { CheckpointCardActions } from "@/components/checkpoints/checkpoint-card-actions";
 import { FileNamePill } from "../file-name-pill";
 import { ToolLayout } from "../tool-layout";
 
@@ -88,13 +89,14 @@ export function WorkspaceEditRenderer({
               </section>
             ))}
             {!success.dryRun && (
-              <details className="text-xs text-muted-foreground">
-                <summary className="cursor-pointer">Undo this change</summary>
-                <p className="mt-2 break-all">
-                  Ask to undo change {success.changeSetId}. Later changes to
-                  these files must be resolved first.
-                </p>
-              </details>
+              <CheckpointCardActions
+                changeSetId={success.changeSetId}
+                fallback={
+                  <p className="text-xs break-all text-muted-foreground">
+                    Change set {success.changeSetId}
+                  </p>
+                }
+              />
             )}
           </div>
         ) : failure?.rollbackFailedPaths?.length ? (

@@ -23,6 +23,10 @@ export const workspaceEditOutputSchema = z.discriminatedUnion("success", [
         beforeRevision: z.string().nullable(),
         afterRevision: z.string().nullable(),
         redacted: z.boolean().optional(),
+        revertStatus: z
+          .enum(["exact", "merged", "unchanged", "conflict"])
+          .optional(),
+        reason: z.string().optional(),
       }),
     ),
   }),

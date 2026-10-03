@@ -5,6 +5,7 @@ import { FilePlus } from "lucide-react";
 import { File as DiffsFile } from "@pierre/diffs/react";
 import type { ToolRendererProps } from "@/app/lib/render-tool";
 import { defaultFileOptions } from "@/lib/diffs-config";
+import { CheckpointCardActions } from "@/components/checkpoints/checkpoint-card-actions";
 import { ToolLayout } from "../tool-layout";
 import { FileNamePill } from "../file-name-pill";
 
@@ -42,6 +43,11 @@ export function WriteRenderer({
   const mergedState = outputError
     ? { ...state, error: state.error ?? outputError }
     : state;
+  // Older transcripts predate change sets; only completed writes have one.
+  const changeSetId =
+    output?.success === true && typeof output.changeSetId === "string"
+      ? output.changeSetId
+      : undefined;
 
   const showCode =
     mergedState.approvalRequested ||
@@ -49,11 +55,16 @@ export function WriteRenderer({
 
   const expandedContent =
     showCode && !mergedState.denied ? (
-      <div className="max-h-96 overflow-auto rounded-md border border-border">
-        <DiffsFile
-          file={{ name: rawFilePath, contents: content }}
-          options={fileOptions}
-        />
+      <div className="space-y-2">
+        <div className="max-h-96 overflow-auto rounded-md border border-border">
+          <DiffsFile
+            file={{ name: rawFilePath, contents: content }}
+            options={fileOptions}
+          />
+        </div>
+        {changeSetId ? (
+          <CheckpointCardActions changeSetId={changeSetId} />
+        ) : null}
       </div>
     ) : undefined;
 

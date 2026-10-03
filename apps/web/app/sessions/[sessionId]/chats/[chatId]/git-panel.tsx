@@ -76,6 +76,7 @@ import type { SessionGitStatus } from "@/hooks/use-session-git-status";
 import { useSessionFiles } from "@/hooks/use-session-files";
 import { useGitHubConnectionStatus } from "@/hooks/use-github-connection-status";
 import { useGitPanel } from "./git-panel-context";
+import { CheckpointHistoryPanel } from "./checkpoint-history-panel";
 import { FileTree } from "./file-tree";
 import { useSessionChatWorkspaceContext } from "./session-chat-context";
 
@@ -1836,6 +1837,7 @@ export function GitPanel(props: GitPanelProps) {
   const gitPanelTabs = [
     "files" as const,
     "diff" as const,
+    "history" as const,
     ...(canOpenPrTab ? (["pr"] as const) : []),
   ];
 
@@ -1929,7 +1931,13 @@ export function GitPanel(props: GitPanelProps) {
                 : "text-muted-foreground hover:bg-muted/50",
             )}
           >
-            {tab === "files" ? "Files" : tab === "diff" ? "Changes" : "PR"}
+            {tab === "files"
+              ? "Files"
+              : tab === "diff"
+                ? "Changes"
+                : tab === "history"
+                  ? "History"
+                  : "PR"}
             {tab === "diff" && hasDiffChanges && (
               <span className="ml-1 text-[10px] text-muted-foreground font-mono">
                 {diffFiles?.length ?? 0}
@@ -1957,7 +1965,9 @@ export function GitPanel(props: GitPanelProps) {
       <div
         className={cn(
           "min-h-0 flex-1",
-          gitPanelTab === "diff" || gitPanelTab === "files"
+          gitPanelTab === "diff" ||
+            gitPanelTab === "files" ||
+            gitPanelTab === "history"
             ? "flex flex-col"
             : "overflow-y-auto",
         )}
@@ -2178,6 +2188,8 @@ export function GitPanel(props: GitPanelProps) {
             </div>
           </div>
         )}
+
+        {gitPanelTab === "history" && <CheckpointHistoryPanel />}
 
         {gitPanelTab === "pr" && (
           <div className="p-3">

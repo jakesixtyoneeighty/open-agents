@@ -1,9 +1,7 @@
-/**
- * Self-contained Node program shipped to the sandbox. Input travels through an
- * SDK-written file, never shell interpolation. Linux flock owns the lock across
- * hosts/processes and releases it on process death. Tests run this exact source.
- */
-export const WORKSPACE_EDIT_WORKER = String.raw`
+import { HISTORY_SOURCE } from "./history-source";
+import { LINE_DIFF_SOURCE } from "./line-diff-source";
+
+const CORE_SOURCE = String.raw`
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const { createHash, randomUUID } = require("node:crypto");
@@ -116,20 +114,45 @@ function applyHunks(text, hunks) {
   return lines.join(eol) + (trailing && lines.length ? eol : "");
 }
 
+function describeChange(file) {
+  return {
+    path: file.path,
+    before: sensitive(file.path) ? null : file.before.text,
+    after: sensitive(file.path) ? null : file.after.text,
+    beforeRevision: file.before.text === null ? null : hash(file.before.text),
+    afterRevision: file.after.text === null ? null : hash(file.after.text),
+    ...(sensitive(file.path) ? { redacted: true } : {}),
+  };
+}
+
+// Attribution comes from the host, but stays bounded and well-formed.
+function cleanOrigin(origin) {
+  if (!origin || (origin.source !== "agent" && origin.source !== "user")) return undefined;
+  if (typeof origin.toolName !== "string" || !origin.toolName || origin.toolName.length > 64) return undefined;
+  const scope = typeof origin.scope === "string" && origin.scope && origin.scope.length <= 512 ? origin.scope : undefined;
+  return { source: origin.source, toolName: origin.toolName, ...(scope ? { scope } : {}) };
+}
+`;
+
+const MAIN_SOURCE = String.raw`
 async function run(request) {
   root = await fs.realpath(rootInput);
-  if (!/^[a-f0-9]{64}$/.test(request.id)) fail("Invalid operation ID");
   await fs.mkdir(store, { recursive: true, mode: 448 });
+  const { index, pending } = await loadIndex();
+  if (request.history) {
+    const result = await readHistory(request, index, pending);
+    await saveIndex(index);
+    return result;
+  }
+  if (!/^[a-f0-9]{64}$/.test(request.id)) fail("Invalid operation ID");
   // A killed process releases flock. Recover its journal before accepting work.
-  for (const name of await fs.readdir(store)) {
-    if (!/^[a-f0-9]{64}\.json$/.test(name)) continue;
-    const journal = JSON.parse(await fs.readFile(path.join(store, name), "utf8"));
-    if (journal.status !== "applying" && journal.status !== "recovery_required") continue;
-    if (request.dryRun) return { success: false, error: "An interrupted edit needs recovery before preview; no workspace files were changed.", changeSetId: name.slice(0, -5), rollbackFailedPaths: journal.files.map(file => file.path) };
+  for (const { id, journal } of pending) {
+    if (request.dryRun) return { success: false, error: "An interrupted edit needs recovery before preview; no workspace files were changed.", changeSetId: id, rollbackFailedPaths: journal.files.map(file => file.path) };
     const failures = await rollback(journal);
     journal.status = failures.length ? "recovery_required" : "rolled_back";
-    await saveJournal(name.slice(0, -5), journal);
-    if (failures.length) return { success: false, error: "An interrupted edit needs recovery; conflicting files were preserved.", changeSetId: name.slice(0, -5), rollbackFailedPaths: failures };
+    await saveJournal(id, journal);
+    if (failures.length) return { success: false, error: "An interrupted edit needs recovery; conflicting files were preserved.", changeSetId: id, rollbackFailedPaths: failures };
+    await recordRollback(index, id);
   }
   const digest = hash(JSON.stringify(request));
   const journalPath = path.join(store, request.id + ".json");
@@ -140,10 +163,15 @@ async function run(request) {
     if (prior.status === "rolled_back") fail("This operation was rolled back. Read current files and submit a new operation.");
   } catch (error) { if (error.code !== "ENOENT") throw error; }
 
-  const files = [];
+  let files = [];
   let replacements = 0;
   let startLine;
-  if (request.undo) {
+  let reverts;
+  let revertChanges;
+  if (request.revert) {
+    ({ files, reverts, changes: revertChanges } = await planRevert(request, index));
+  } else if (request.undo) {
+    reverts = [request.undo];
     if (!/^[a-f0-9]{64}$/.test(request.undo)) fail("Invalid change set ID");
     let previous;
     try { previous = JSON.parse(await fs.readFile(path.join(store, request.undo + ".json"), "utf8")); }
@@ -199,17 +227,12 @@ async function run(request) {
   const result = {
     success: true, changeSetId: request.id, dryRun: Boolean(request.dryRun), replacements,
     ...(startLine === undefined ? {} : { startLine }),
-    changes: files.map(file => ({
-      path: file.path,
-      before: sensitive(file.path) ? null : file.before.text,
-      after: sensitive(file.path) ? null : file.after.text,
-      beforeRevision: file.before.text === null ? null : hash(file.before.text),
-      afterRevision: file.after.text === null ? null : hash(file.after.text),
-      ...(sensitive(file.path) ? { redacted: true } : {}),
-    })),
+    changes: revertChanges ?? files.map(describeChange),
+    ...(request.revert ? { reverts } : {}),
   };
   if (request.dryRun) return result;
-  const journal = { digest, status: "applying", files, result };
+  const origin = cleanOrigin(request.origin);
+  const journal = { digest, status: "applying", files, result, ...(origin ? { origin } : {}), ...(reverts ? { reverts } : {}) };
   await saveJournal(request.id, journal);
   try {
     for (const change of files) {
@@ -217,14 +240,19 @@ async function run(request) {
       if (!same(change.before, change.after)) await write(change.path, change.after);
     }
     journal.status = "committed";
+    journal.committedAt = Date.now();
+    journal.sequence = ++index.sequence;
     await saveJournal(request.id, journal);
-    return result;
   } catch (error) {
     const failures = await rollback(journal);
     journal.status = failures.length ? "recovery_required" : "rolled_back";
     await saveJournal(request.id, journal);
+    if (!failures.length) await recordRollback(index, request.id).catch(() => {});
     return { success: false, error: error.message + (failures.length ? "; rollback incomplete; conflicting files preserved." : "; file contents rolled back."), changeSetId: request.id, ...(failures.length ? { rollbackFailedPaths: failures } : {}) };
   }
+  // The commit is durable; a failed index save is reconciled on the next run.
+  await recordCommit(index, request.id, journal).catch(() => {});
+  return result;
 }
 
 (async () => {
@@ -234,3 +262,11 @@ async function run(request) {
   await fs.writeFile(outputPath, JSON.stringify(result), { mode: 384 });
 })().catch(() => { process.exitCode = 1; });
 `;
+
+/**
+ * Self-contained Node program shipped to the sandbox. Input travels through an
+ * SDK-written file, never shell interpolation. Linux flock owns the lock across
+ * hosts/processes and releases it on process death. Tests run this exact source.
+ */
+export const WORKSPACE_EDIT_WORKER =
+  CORE_SOURCE + LINE_DIFF_SOURCE + HISTORY_SOURCE + MAIN_SOURCE;
