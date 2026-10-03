@@ -144,7 +144,7 @@ type SessionChatContextValue = {
   /** Git status error message */
   gitStatusError: string | null;
   /** Trigger a git status refresh */
-  refreshGitStatus: () => Promise<SessionGitStatus | undefined>;
+  refreshGitStatus: () => Promise<SessionGitStatus | null | undefined>;
   /** File suggestions from sandbox */
   files: FileSuggestion[] | null;
   /** Whether files are loading */

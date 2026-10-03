@@ -105,13 +105,12 @@ export async function getGitStatus(params: {
   const session = await requireAuth();
   const sessionRecord = await requireOwnedSession(session.user.id, sessionId);
 
-  if (!isSandboxActive(sessionRecord.sandboxState)) {
-    throw new Error("Sandbox not initialized");
-  }
-
+  // The chat page keeps polling until it learns the sandbox stopped, so an
+  // inactive sandbox is expected here. Throwing would surface as a 500 on the
+  // page route; report no status instead, as the sandbox failure path does.
   const sandboxState = sessionRecord.sandboxState;
-  if (!sandboxState) {
-    throw new Error("Sandbox not initialized");
+  if (!sandboxState || !isSandboxActive(sandboxState)) {
+    return null;
   }
 
   try {

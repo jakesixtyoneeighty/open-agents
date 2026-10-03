@@ -7,11 +7,16 @@ const nextConfig: NextConfig = {
     "/*": ["./lib/skills/task-planning/SKILL.md"],
   },
   outputFileTracingExcludes: {
-    // The workflow runtime does a best-effort (try/catch) read of
-    // process.cwd()/package.json, so tracing ships apps/web/package.json
-    // ("type": "module") with these functions. Node then treats the compiled
-    // CJS route.js as ESM and throws ERR_REQUIRE_ESM on every invocation.
-    "/.well-known/workflow/**": ["./package.json"],
+    // Compiled routes are CommonJS, but Vercel does not ship Next's
+    // .next/package.json ("type": "commonjs") marker. If tracing pulls in
+    // apps/web/package.json or the root package.json (both "type": "module"),
+    // Node treats route.js as ESM and throws ERR_REQUIRE_ESM. Vercel groups
+    // routes into shared functions, so one route tracing a manifest breaks
+    // every route in its group. Known triggers: the workflow runtime's
+    // best-effort read of process.cwd()/package.json, and the agent's
+    // run_checks detector, whose path.join(dir, "package.json") sandbox reads
+    // the tracer resolves to the host manifest. Exclude both for all routes.
+    "/*": ["./package.json", "../../package.json"],
   },
   images: {
     remotePatterns: [

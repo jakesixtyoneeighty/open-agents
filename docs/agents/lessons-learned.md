@@ -41,6 +41,7 @@ Hard-won knowledge from building this codebase. When you make a mistake or disco
 - For Workflow SDK discovery in Next.js, ensure workflow files live in scanned directories (for this app, `app/`), otherwise manifests can show steps but `0 workflows` and `start()` will not run durable workflows.
 - Server-side optimistic chat route lookup must allow realistic persistence latency (multi-second retry window), otherwise `/sessions/[sessionId]/chats/[chatId]` can redirect away before chat creation finishes.
 - A client `<img>` inside an SSR-rendered component can fail to load before hydration, and then `onError` never fires. Also check `img.complete && img.naturalWidth === 0` in a ref callback to catch the failure.
+- Never let `apps/web/package.json` or the root `package.json` (both `"type": "module"`) into a function trace. Vercel does not ship `.next/package.json` (`"type": "commonjs"`), so compiled `route.js` becomes ESM and fails with `ERR_REQUIRE_ESM`. Vercel bundles routes into shared functions, so one route that traces a manifest breaks unrelated routes such as `/api/auth/info`. Even a sandbox read like `path.join(dir, "package.json")` gets traced to the host file. `next.config.ts` excludes both manifests for `"/*"`. To check, build and look for `package.json` in `.next/server/**/*.nft.json`.
 
 ## Sandbox Lifecycle
 
@@ -129,6 +130,7 @@ Hard-won knowledge from building this codebase. When you make a mistake or disco
 - GitHub fork creation can take longer than a few seconds to become pushable; PR fallback should retry fork push on transient `repository not found` errors instead of failing immediately.
 - Git push failures from Vercel sandboxes can return empty output even when auth/write is denied; PR fallback logic should not rely only on matching "permission" text before attempting fork fallback.
 - When the GitHub App lacks push access (e.g. repo removed from installation scope), fail fast with a 403 directing users to /settings/connections rather than silently forking.
+- GitHub sign-in returns no email for a user with a private address when the token cannot read `/user/emails`, and Better Auth then rejects the callback with `email_not_found`. `mapGitHubProfileToUser` falls back to the `{id}+{login}@users.noreply.github.com` address. Account linking does not need an email.
 
 ## Quality passes and outcome alerts
 

@@ -147,7 +147,7 @@ type GitPanelProps = {
   hasSandbox: boolean;
   gitStatus: SessionGitStatus | null;
   gitStatusLoading: boolean;
-  refreshGitStatus: () => Promise<SessionGitStatus | undefined>;
+  refreshGitStatus: () => Promise<SessionGitStatus | null | undefined>;
   onCommitted?: () => Promise<void> | void;
   isAgentWorking: boolean;
 
@@ -350,7 +350,7 @@ function InlineCommitPanel({
   session: Session;
   hasSandbox: boolean;
   gitStatus: SessionGitStatus | null;
-  refreshGitStatus: () => Promise<SessionGitStatus | undefined>;
+  refreshGitStatus: () => Promise<SessionGitStatus | null | undefined>;
   onCommitted?: () => Promise<void> | void;
   onGitMessage?: (message: WebAgentUIMessage) => Promise<void> | void;
   isAgentWorking: boolean;
@@ -714,7 +714,7 @@ function InlinePrCreatePanel({
   session: Session;
   hasSandbox: boolean;
   gitStatus: SessionGitStatus | null;
-  refreshGitStatus: () => Promise<SessionGitStatus | undefined>;
+  refreshGitStatus: () => Promise<SessionGitStatus | null | undefined>;
   hasUncommittedGitChanges: boolean;
   onPrDetected?: (info: {
     prNumber: number;

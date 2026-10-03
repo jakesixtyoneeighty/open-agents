@@ -42,7 +42,7 @@ interface CommitDialogProps {
   session: Session;
   hasSandbox: boolean;
   gitStatus: SessionGitStatus | null;
-  refreshGitStatus: () => Promise<SessionGitStatus | undefined>;
+  refreshGitStatus: () => Promise<SessionGitStatus | null | undefined>;
   onCommitted?: () => void;
   onGitMessage?: (message: WebAgentUIMessage) => Promise<void> | void;
   onOpenCreatePr?: () => void;

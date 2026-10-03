@@ -9,15 +9,7 @@ export interface UseSessionGitStatusReturn {
   gitStatus: SessionGitStatus | null;
   isLoading: boolean;
   error: string | null;
-  refresh: () => Promise<SessionGitStatus | undefined>;
-}
-
-async function fetchGitStatus(sessionId: string): Promise<SessionGitStatus> {
-  const result = await getGitStatus({ sessionId });
-  if (!result) {
-    throw new Error("Failed to fetch git status");
-  }
-  return result;
+  refresh: () => Promise<SessionGitStatus | null | undefined>;
 }
 
 export function useSessionGitStatus(
@@ -26,9 +18,11 @@ export function useSessionGitStatus(
 ): UseSessionGitStatusReturn {
   const key = sandboxConnected ? (["git-status", sessionId] as const) : null;
 
-  const { data, error, isLoading, mutate } = useSWR<SessionGitStatus>(
+  // null means the sandbox is inactive or unreachable: no status, not an error.
+  const { data, error, isLoading, mutate } = useSWR<SessionGitStatus | null>(
     key,
-    async ([, id]: readonly [string, string]) => fetchGitStatus(id),
+    async ([, id]: readonly [string, string]) =>
+      getGitStatus({ sessionId: id }),
     {
       revalidateOnFocus: false,
       dedupingInterval: 1500,

@@ -5,6 +5,7 @@ import type {
   VercelProfile,
 } from "better-auth/social-providers";
 import { nanoid } from "nanoid";
+import { resolveGitHubEmail } from "@/lib/auth/github-email";
 import { deriveAuthUsername } from "@/lib/auth/username";
 import { db } from "@/lib/db/client";
 import * as schema from "@/lib/db/schema";
@@ -81,8 +82,12 @@ function mapVercelProfileToUser(profile: VercelProfile): { username: string } {
   };
 }
 
-function mapGitHubProfileToUser(profile: GithubProfile): { username: string } {
+function mapGitHubProfileToUser(profile: GithubProfile): {
+  email: string;
+  username: string;
+} {
   return {
+    email: resolveGitHubEmail(profile),
     username: deriveAuthUsername({
       id: profile.id,
       username: profile.login,
