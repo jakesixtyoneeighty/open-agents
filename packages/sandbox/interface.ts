@@ -80,6 +80,10 @@ export interface ExecResult {
   truncated: boolean;
   /** SDK-retained log in this sandbox session; absent on unsupported backends. */
   commandId?: string;
+  /** True when the command was stopped by its timeout, not by its own exit. */
+  timedOut?: boolean;
+  /** Untruncated-from-the-start output, present when `fullOutputLimit` was requested. */
+  fullOutput?: { stdout: string; stderr: string; truncated: boolean };
 }
 
 /**
@@ -132,6 +136,12 @@ export interface Sandbox {
    */
   readonly timeout?: number;
 
+  /**
+   * Directory outside the workspace for agent bookkeeping (for example check
+   * history). Lives as long as this sandbox filesystem.
+   */
+  readonly stateDirectory?: string;
+
   readFile(path: string, encoding: "utf-8"): Promise<string>;
   readFileBuffer(path: string): Promise<Buffer>;
   writeFile(path: string, content: string, encoding: "utf-8"): Promise<void>;
@@ -151,7 +161,12 @@ export interface Sandbox {
     command: string,
     cwd: string,
     timeoutMs: number,
-    options?: { signal?: AbortSignal; outputLimit?: number },
+    options?: {
+      signal?: AbortSignal;
+      outputLimit?: number;
+      /** Also return up to this many leading characters per stream for parsing. */
+      fullOutputLimit?: number;
+    },
   ): Promise<ExecResult>;
 
   readCommandOutput?(

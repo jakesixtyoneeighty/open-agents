@@ -84,6 +84,7 @@ import { TaskBriefSummary } from "@/components/task-brief/task-brief-summary";
 import { MojoThinking } from "@/components/brand/mojo-thinking";
 import { ThinkingBlock } from "@/components/thinking-block";
 import { ToolCall } from "@/components/tool-call";
+import { CheckFreshnessProvider } from "@/components/tool-call/check-freshness";
 import { OpenFileProvider } from "@/components/tool-call/open-file-context";
 import { ScreenshotSourceProvider } from "@/components/tool-call/screenshot-gallery/screenshot-source-context";
 import { Button } from "@/components/ui/button";
@@ -3083,7 +3084,7 @@ export function SessionChatContent({
   ) : null;
 
   return (
-    <>
+    <CheckFreshnessProvider messages={renderMessages}>
       {/* Git panel portaled to layout-level for full page height */}
       {gitPanelOpen &&
         panelPortalRef.current &&
@@ -4515,6 +4516,6 @@ export function SessionChatContent({
           }, 100);
         }}
       />
-    </>
+    </CheckFreshnessProvider>
   );
 }

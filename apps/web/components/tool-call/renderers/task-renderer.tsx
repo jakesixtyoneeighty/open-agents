@@ -6,11 +6,12 @@ import type { ToolRenderState } from "@open-agents/shared/lib/tool-state";
 import {
   Bot,
   Camera,
-  FileText,
   FilePlus,
+  FileText,
   FolderSearch,
   Globe,
   Hammer,
+  ListChecks,
   Paintbrush,
   Pencil,
   Search,
@@ -35,6 +36,7 @@ import { EditRenderer } from "./edit-renderer";
 import { WorkspaceEditRenderer } from "./workspace-edit-renderer";
 import { GlobRenderer } from "./glob-renderer";
 import { GrepRenderer } from "./grep-renderer";
+import { RunChecksRenderer } from "./run-checks-renderer";
 import { TodoRenderer } from "./todo-renderer";
 import { AskUserQuestionRenderer } from "./ask-user-question-renderer";
 import { FetchRenderer } from "./fetch-renderer";
@@ -93,6 +95,11 @@ function getToolMeta(toolName: string): ToolMeta {
         displayName: "Glob",
         icon: <FolderSearch className={TOOL_ICON_CLASS} />,
       };
+    case "run_checks":
+      return {
+        displayName: "Checks",
+        icon: <ListChecks className={TOOL_ICON_CLASS} />,
+      };
     case "web_fetch":
       return {
         displayName: "Fetch",
@@ -146,6 +153,10 @@ function getToolSummary(name: string, input: unknown): string {
     case "glob":
       if (inp.pattern) return `'${inp.pattern}'`;
       return inp.cursor ? "next page" : "";
+    case "run_checks":
+      return Array.isArray(inp.checks)
+        ? inp.checks.join(", ")
+        : "default checks";
     case "bash":
       return inp.command ? String(inp.command) : "";
     case "web_search":
@@ -335,6 +346,8 @@ function SubagentToolCall({ part }: { part: WebAgentUIToolPart }) {
       return <GlobRenderer part={part} state={state} />;
     case "tool-grep":
       return <GrepRenderer part={part} state={state} />;
+    case "tool-run_checks":
+      return <RunChecksRenderer part={part} state={state} />;
     case "tool-todo_write":
       return <TodoRenderer part={part} state={state} />;
     case "tool-ask_user_question":

@@ -19,6 +19,7 @@ import type {
 import type { VercelState } from "./state.ts";
 import {
   commandOutputWindow,
+  leadingOutput,
   previewCommandOutput,
 } from "../command-output.ts";
 
@@ -187,6 +188,7 @@ function truncateCommandOutput(output: string): {
  */
 export class VercelSandbox implements Sandbox {
   readonly type = "cloud" as const;
+  readonly stateDirectory = "/var/tmp/open-agents";
   /** Durable persistent sandbox name. */
   readonly name: string;
   /** Current runtime session identifier. */
@@ -927,7 +929,11 @@ ${hostLine}${portLines}${runtimeEnvLine}`;
     command: string,
     cwd: string,
     timeoutMs: number,
-    options?: { signal?: AbortSignal; outputLimit?: number },
+    options?: {
+      signal?: AbortSignal;
+      outputLimit?: number;
+      fullOutputLimit?: number;
+    },
   ): Promise<ExecResult> {
     try {
       const timeoutSignal = AbortSignal.timeout(timeoutMs);
@@ -964,6 +970,15 @@ ${hostLine}${portLines}${runtimeEnvLine}`;
         ...(options?.outputLimit === undefined
           ? {}
           : { commandId: result.cmdId }),
+        ...(options?.fullOutputLimit === undefined
+          ? {}
+          : {
+              fullOutput: leadingOutput(
+                rawStdout,
+                rawStderr,
+                options.fullOutputLimit,
+              ),
+            }),
       };
     } catch (error) {
       if (error instanceof Error && error.name === "TimeoutError") {
@@ -973,6 +988,7 @@ ${hostLine}${portLines}${runtimeEnvLine}`;
           stdout: "",
           stderr: `Command timed out after ${timeoutMs}ms`,
           truncated: false,
+          timedOut: true,
         };
       }
 

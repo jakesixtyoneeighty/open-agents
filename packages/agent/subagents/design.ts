@@ -18,6 +18,7 @@ import type { SkillMetadata } from "../skills/types";
 import { skillTool } from "../tools/skill";
 import { bashTool } from "../tools/bash";
 import { commandOutputTool } from "../tools/command-output";
+import { runChecksTool } from "../tools/run-checks";
 import { generateImageTool, MAX_IMAGES_PER_RUN } from "../tools/generate-image";
 import { projectReadMessages } from "../context-management/read-projection";
 import { globTool } from "../tools/glob";
@@ -133,6 +134,7 @@ export const designSubagent = new ToolLoopAgent({
     glob: globTool(),
     bash: bashTool(),
     command_output: commandOutputTool,
+    run_checks: runChecksTool(),
     browser_session: browserSessionTool,
     browser_inspect: browserInspectTool,
     browser_action: browserActionTool,

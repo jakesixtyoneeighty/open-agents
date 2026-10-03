@@ -56,6 +56,10 @@ function getToolSummary(toolCall: TaskPendingToolCall): string {
     case "glob":
       if (input?.pattern) return `"${input.pattern}"`;
       return input?.cursor ? "next page" : "";
+    case "run_checks":
+      return Array.isArray(input?.checks)
+        ? input.checks.join(", ")
+        : "default checks";
     case "bash": {
       const cmd = input?.command ? String(input.command) : "";
       return cmd.length > 40 ? cmd.slice(0, 40) + "..." : cmd;

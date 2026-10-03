@@ -8,7 +8,7 @@ import { designSubagent } from "./subagents/design";
 
 test("the actual agent registries expose coordinated editing only to build roles", () => {
   for (const agent of [openAgent, executorSubagent, designSubagent]) {
-    for (const name of ["multi_edit", "apply_patch", "undo_edit"])
+    for (const name of ["multi_edit", "apply_patch", "undo_edit", "run_checks"])
       expect(agent.tools).toHaveProperty(name);
   }
   for (const tools of [
@@ -23,6 +23,7 @@ test("the actual agent registries expose coordinated editing only to build roles
       "multi_edit",
       "apply_patch",
       "undo_edit",
+      "run_checks",
     ])
       expect(tools).not.toHaveProperty(name);
   }

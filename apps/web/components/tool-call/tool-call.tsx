@@ -20,6 +20,7 @@ import { WorkspaceEditRenderer } from "./renderers/workspace-edit-renderer";
 import { ScreenshotRenderer } from "./renderers/screenshot-renderer";
 import { GlobRenderer } from "./renderers/glob-renderer";
 import { GrepRenderer } from "./renderers/grep-renderer";
+import { RunChecksRenderer } from "./renderers/run-checks-renderer";
 import { TaskRenderer } from "./renderers/task-renderer";
 import { TodoRenderer } from "./renderers/todo-renderer";
 import { AskUserQuestionRenderer } from "./renderers/ask-user-question-renderer";
@@ -86,6 +87,8 @@ export function ToolCall({
       return <GlobRenderer part={part} state={state} {...approvalProps} />;
     case "tool-grep":
       return <GrepRenderer part={part} state={state} {...approvalProps} />;
+    case "tool-run_checks":
+      return <RunChecksRenderer part={part} state={state} {...approvalProps} />;
     case "tool-task":
       return <TaskRenderer part={part} state={state} {...approvalProps} />;
     case "tool-todo_write":
