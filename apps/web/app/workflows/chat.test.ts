@@ -452,6 +452,24 @@ beforeEach(() => {
 });
 
 describe("runAgentWorkflow", () => {
+  test.each([null, "variant:deleted", "openai/gpt-5.4-pro"])(
+    "omits the shared subagent override for %s so role defaults apply",
+    async (override) => {
+      testPreferences.defaultSubagentModelId = override;
+      await runAgentWorkflow(makeOptions());
+      expect(agentCallOptions).toBeDefined();
+      expect(agentCallOptions).not.toHaveProperty("subagentModel");
+    },
+  );
+
+  test("passes a valid shared subagent override to the agent", async () => {
+    testPreferences.defaultSubagentModelId = "openai/gpt-6.1-sol";
+    await runAgentWorkflow(makeOptions());
+    expect(agentCallOptions?.subagentModel).toEqual({
+      id: "openai/gpt-6.1-sol",
+    });
+  });
+
   test("repository instructions and check command reach the agent", async () => {
     testRepoPreferences = {
       setupCommand: null,

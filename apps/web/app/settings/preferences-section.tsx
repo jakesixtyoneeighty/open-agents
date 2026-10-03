@@ -860,7 +860,7 @@ export function ModelPreferencesSection() {
           <ModelCombobox
             value={selectedSubagentModelId}
             items={[
-              { id: "auto", label: "Same as main model" },
+              { id: "auto", label: "Use each role's default model" },
               ...subagentModelOptions.map((option) => ({
                 id: option.id,
                 label: option.label,
@@ -875,7 +875,9 @@ export function ModelPreferencesSection() {
             onChange={handleSubagentModelChange}
           />
           <p className="text-xs text-muted-foreground">
-            For explorer and executor subagents.
+            Overrides the model for explorer, executor, and design subagents.
+            Choose role defaults to use each agent&apos;s configured model and
+            reasoning level.
           </p>
         </div>
       </div>

@@ -93,7 +93,7 @@ const callOptionsSchema = z.object({
 export type DesignCallOptions = z.infer<typeof callOptionsSchema>;
 
 export const DESIGN_MODEL: ModelConfig = {
-  id: "anthropic/opus-5.5",
+  id: "anthropic/claude-opus-5.5",
   reasoningEffort: "high",
 };
 

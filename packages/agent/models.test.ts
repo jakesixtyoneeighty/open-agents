@@ -63,7 +63,7 @@ describe("getProviderOptionsForModel", () => {
       thinkingConfig: { thinkingLevel: "medium" },
     });
     expect(
-      getProviderOptionsForModel("anthropic/opus-5.5", undefined, "high")
+      getProviderOptionsForModel("anthropic/claude-opus-5.5", undefined, "high")
         .anthropic,
     ).toEqual({
       effort: "high",

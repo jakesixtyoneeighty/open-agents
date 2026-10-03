@@ -51,6 +51,7 @@ import type {
   WorkflowRunStepTiming,
 } from "@/lib/db/workflow-runs";
 import { resolveChatModelSelection } from "../api/chat/_lib/model-selection";
+import { resolveSubagentModelSelection } from "../api/chat/_lib/subagent-model-selection";
 import { resolveChatSandboxRuntime } from "./chat-sandbox-runtime";
 import { resolveQualityReview } from "./quality-review";
 import { qualityReviewSubmissionSchema } from "@/lib/quality-review";
@@ -197,13 +198,10 @@ async function resolveChatModelRuntime(params: {
     modelVariants,
     missingVariantLabel: "Selected model variant",
   });
-  const subagentModelSelection = preferences?.defaultSubagentModelId
-    ? resolveChatModelSelection({
-        selectedModelId: preferences.defaultSubagentModelId,
-        modelVariants,
-        missingVariantLabel: "Subagent model variant",
-      })
-    : undefined;
+  const subagentModelSelection = resolveSubagentModelSelection({
+    selectedModelId: preferences?.defaultSubagentModelId,
+    modelVariants,
+  });
   const autoCommitEnabled =
     (sessionRecord.autoCommitPushOverride ??
       preferences?.autoCommitPush ??
