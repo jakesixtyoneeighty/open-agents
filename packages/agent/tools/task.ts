@@ -5,6 +5,7 @@ import {
   type UIToolInvocation,
 } from "ai";
 import { z } from "zod";
+import { getSkills } from "./skill";
 import {
   buildSubagentSummaryLines,
   SUBAGENT_REGISTRY,
@@ -153,6 +154,7 @@ IMPORTANT:
         sandbox: sandboxContext.sandbox,
         model,
         screenshotStore: getScreenshotStore(experimental_context),
+        skills: getSkills(experimental_context),
       },
       abortSignal,
     });

@@ -2,6 +2,10 @@ import type { LanguageModel } from "ai";
 import { stepCountIs, ToolLoopAgent } from "ai";
 import { gateway, type ModelConfig } from "../models";
 import { z } from "zod";
+import { withBundledSkills } from "../skills/bundled";
+import { buildSkillsPrompt } from "../skills/prompt";
+import type { SkillMetadata } from "../skills/types";
+import { skillTool } from "../tools/skill";
 import { bashTool } from "../tools/bash";
 import { commandOutputTool } from "../tools/command-output";
 import { projectReadMessages } from "../context-management/read-projection";
@@ -59,6 +63,7 @@ const callOptionsSchema = z.object({
     .describe("Sandbox for file system and shell operations"),
   model: z.custom<LanguageModel>().describe("Language model for this subagent"),
   screenshotStore: z.custom<ScreenshotStore>().optional(),
+  skills: z.custom<SkillMetadata[]>().optional(),
 });
 
 export type ExecutorCallOptions = z.infer<typeof callOptionsSchema>;
@@ -74,6 +79,7 @@ export const executorSubagent = new ToolLoopAgent({
   }),
   instructions: EXECUTOR_SYSTEM_PROMPT,
   tools: {
+    skill: skillTool,
     read: readFileTool(),
     write: writeFileTool(),
     edit: editFileTool(),
@@ -90,6 +96,7 @@ export const executorSubagent = new ToolLoopAgent({
       throw new Error("Executor subagent requires task call options.");
     }
 
+    const skills = withBundledSkills(options.skills, "executor");
     const sandbox = options.sandbox;
     const model = options.model ?? settings.model;
     return {
@@ -99,6 +106,8 @@ export const executorSubagent = new ToolLoopAgent({
 
 ${SUBAGENT_WORKING_DIR}
 
+${buildSkillsPrompt(skills)}
+
 ## Your Task
 ${options.task}
 
@@ -107,6 +116,7 @@ ${options.instructions}
 
 ${SUBAGENT_REMINDER}`,
       experimental_context: {
+        skills,
         sandbox,
         model,
       },

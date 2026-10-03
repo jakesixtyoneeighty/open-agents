@@ -10,6 +10,7 @@ import {
 } from "./models";
 
 import type { SkillMetadata } from "./skills/types";
+import { withBundledSkills } from "./skills/bundled";
 import { buildSystemPrompt } from "./system-prompt";
 import { getQualityReviewTools } from "./quality-review";
 import { getPlanningTools } from "./planning";
@@ -155,7 +156,10 @@ export function createOpenAgent<
         : undefined;
       const customInstructions = options.customInstructions;
       const sandbox = options.sandbox;
-      const skills = options.skills ?? [];
+      const skills =
+        options.planningMode || options.qualityReviewMode
+          ? []
+          : withBundledSkills(options.skills);
 
       const instructions = buildSystemPrompt({
         cwd: sandbox.workingDirectory,

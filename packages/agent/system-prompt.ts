@@ -1,5 +1,6 @@
 import { buildSubagentSummaryLines } from "./subagents/registry";
 import type { SkillMetadata } from "./skills/types";
+import { buildSkillsPrompt } from "./skills/prompt";
 
 // ---------------------------------------------------------------------------
 // Model family detection
@@ -353,55 +354,6 @@ export interface BuildSystemPromptOptions {
   skills?: SkillMetadata[];
   modelId?: string;
   githubToolsEnabled?: boolean;
-}
-
-/**
- * Build the skills section for the system prompt.
- * Lists available skills that the agent can invoke.
- */
-function buildSkillsPrompt(skills: SkillMetadata[]): string {
-  if (skills.length === 0) return "";
-
-  // Filter to skills the model can actually invoke:
-  // - Must NOT have model invocation disabled
-  const invocableSkills = skills.filter(
-    (s) => !s.options.disableModelInvocation,
-  );
-
-  if (invocableSkills.length === 0) return "";
-
-  const skillsList = invocableSkills
-    .map((s) => {
-      const suffix = s.options.userInvocable === false ? " (model-only)" : "";
-      return `- ${s.name}: ${s.description}${suffix}`;
-    })
-    .join("\n");
-
-  return `
-## Skills
-- \`skill\` - Execute a skill to extend your capabilities
-- Use the \`skill\` tool to invoke skills when relevant to the user's request
-- When a user references "/<skill-name>" (e.g., "/commit"), invoke the corresponding skill
-- Some skills may be model-only (not user-invocable) and should be invoked automatically when relevant
-
-Available skills:
-${skillsList}
-
-When a skill is relevant, invoke it IMMEDIATELY using the skill tool.
-If you see a <command-name> tag in the conversation, the skill is already loaded - follow its instructions directly.
-
-IMPORTANT - Slash command detection:
-When the user's message starts with "/<name>", they are invoking a skill.
-Check if "<name>" matches an available skill above. If it does, your FIRST tool call MUST be the skill tool -- do not
-read files, search code, or take any other action before invoking the skill.
-
-To find and install new skills, use \`npx skills\`. Prefer \`-a amp\` (the universal agent format) so skills work across all agents.
-
-\`\`\`
-npx skills find <keyword>              # search for skills
-npx skills add vercel/ai -y -a amp     # install the AI SDK skill
-npx skills --help                      # all options
-\`\`\``;
 }
 
 /**

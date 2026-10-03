@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import type { SkillMetadata } from "@open-agents/agent";
+import { withBundledSkills } from "../../../../../../../packages/agent/skills/bundled";
 
 mock.module("server-only", () => ({}));
 
@@ -147,6 +148,7 @@ function registerRouteMocks() {
   }));
 
   mock.module("@open-agents/agent", () => ({
+    withBundledSkills,
     discoverSkills: async (_sandbox: unknown, skillDirs: string[]) => {
       discoverCalls.push({ skillDirs });
       return discoveredSkills;
@@ -221,6 +223,10 @@ describe("/api/sessions/[sessionId]/skills", () => {
           name: "ship",
           description: "Deploy the current project",
         },
+        ...withBundledSkills().map(({ name, description }) => ({
+          name,
+          description,
+        })),
       ],
     });
     expect(cacheReadCalls).toEqual([
@@ -272,6 +278,10 @@ describe("/api/sessions/[sessionId]/skills", () => {
           name: "fresh",
           description: "Freshly discovered skill",
         },
+        ...withBundledSkills().map(({ name, description }) => ({
+          name,
+          description,
+        })),
       ],
     });
     expect(cacheReadCalls).toHaveLength(0);

@@ -57,6 +57,8 @@ export interface SkillOptions {
  * Contains only what's needed for discovery and invocation.
  */
 export interface SkillMetadata {
+  /** Bundled content is loaded from the app, never from sandbox paths. */
+  source?: "bundled";
   /** Unique name of the skill */
   name: string;
   /** Short description for the agent */

@@ -1,0 +1,15 @@
+# Skills used by the app's agents
+
+The app ships six adapted skills: diagnosing-bugs, verification-before-completion, tdd, codebase-design, vercel-composition-patterns, and research. They are runtime defaults for the main agent and the executor/design children. The explorer receives research and codebase-design. The existing design art-direction prompt remains authoritative for visual work.
+
+`packages/agent/skills/bundled/*/SKILL.md` is the editable source. Run `pnpm skills:build` after changing it. The generator produces `bundled.generated.json`, statically imported into the agent package, so deployment does not depend on filesystem tracing, network installation, a sandbox image, or the repository cloned by a user. `pnpm run ci` checks that the artifact matches the source.
+
+At each agent call, `withBundledSkills` merges the current app catalog with discovered project and global skills. Existing discovery order wins on a case-insensitive name match, including a project's disabled skill. Bundled metadata is rebuilt rather than reused from an older catalog. The authenticated session skills endpoint uses the same merge after either a cache hit or discovery. Bundled defaults are not written into the discovery cache or the user's repository.
+
+The system prompt advertises names, descriptions, and task-phase triggers. The model calls the existing `skill` tool to load only the relevant instructions; the main chat already renders these calls. Bundled content is read from the app's static bundle, while project/global content continues to be read from the sandbox. `open-agents:skills/...` identifies a bundled resource, not a sandbox filesystem path. The six adapted documents are self-contained, with no scripts or missing reference dependencies.
+
+The parent passes its catalog to child agents through `task`. Each child rebuilds the catalog for its role and has its own skill tool and instructions. Child tool calls continue through the existing task progress stream. Skills provide guidance only; they add no write, credential, GitHub, or deployment capabilities. Planning and quality-review calls still have no skill or delegation tool and advertise no runtime skill catalog.
+
+Selection is model-directed using explicit workflow instructions, not a deterministic gate that forces every skill to run. Tests cover the actual AI SDK request/tool loop with simulated models, registration without sandbox installation, role filtering, project precedence, and planning/review restrictions. Live model adherence and authenticated production acceptance must be checked after deployment; local passing tests do not prove those outcomes.
+
+Source provenance and supplied license notices are recorded in `packages/agent/skills/bundled/`. These are adaptations of the supplied archive, not an installation of its entire vendor library. Use project conventions for package scripts, runtimes, and validation; runtime skills serve arbitrary user repositories and must not hardcode Open Agents' own pnpm/Bun commands.

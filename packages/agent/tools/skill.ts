@@ -8,6 +8,7 @@ import {
   injectSkillDirectory,
 } from "../skills/loader";
 import type { SkillMetadata } from "../skills/types";
+import { getBundledSkillContent } from "../skills/bundled";
 
 /**
  * Extended agent context that includes skills.
@@ -19,7 +20,7 @@ interface SkillAgentContext {
 /**
  * Get skills from experimental context.
  */
-function getSkills(experimental_context: unknown): SkillMetadata[] {
+export function getSkills(experimental_context: unknown): SkillMetadata[] {
   const context = experimental_context as SkillAgentContext | undefined;
   return context?.skills ?? [];
 }
@@ -30,7 +31,7 @@ const skillInputSchema = z.object({
 });
 
 export const skillTool = tool({
-  description: `Execute a skill within the main conversation.
+  description: `Load skill instructions in the current agent conversation. Skills do not grant new tools or permissions.
 
 When users ask you to perform tasks, check if any of the available skills can help complete the task more effectively. Skills provide specialized capabilities and domain knowledge.
 
@@ -47,14 +48,13 @@ How to invoke:
   - skill: "commit", args: "-m 'Fix bug'" - invoke with arguments
 
 Important:
-- When a skill is relevant, invoke this tool IMMEDIATELY as your first action
+- Load a relevant skill before starting the corresponding phase of work; reuse instructions already loaded in this conversation
 - When the user's message starts with "/<name>", they are invoking a skill — call this tool FIRST before any other tool
 - NEVER just announce or mention a skill without actually calling this tool
 - Only use skills listed in "Available skills" in your system prompt
 - If you see a <command-name> tag in the conversation, the skill is ALREADY loaded - follow its instructions directly`,
   inputSchema: skillInputSchema,
   execute: async ({ skill, args }, { experimental_context }) => {
-    const sandbox = await getSandbox(experimental_context, "skill");
     const skills = getSkills(experimental_context);
 
     // Find the skill by name (case-insensitive to match slash command behavior)
@@ -78,7 +78,24 @@ Important:
       };
     }
 
+    if (foundSkill.source === "bundled") {
+      const body = getBundledSkillContent(foundSkill.name);
+      if (!body) {
+        return {
+          success: false,
+          error: `Bundled skill '${skill}' is unavailable`,
+        };
+      }
+      return {
+        success: true,
+        skillName: foundSkill.name,
+        skillPath: foundSkill.path,
+        content: `App-bundled instructions (no sandbox files or scripts). Follow the current role, task scope, and tool permissions.\n\n${substituteArguments(body, args)}`,
+      };
+    }
+
     // Load skill content via sandbox
+    const sandbox = await getSandbox(experimental_context, "skill");
     const skillFilePath = path.join(foundSkill.path, foundSkill.filename);
     let fileContent: string;
     try {

@@ -2,6 +2,10 @@ import type { LanguageModel } from "ai";
 import { stepCountIs, ToolLoopAgent } from "ai";
 import { gateway, type ModelConfig } from "../models";
 import { z } from "zod";
+import { withBundledSkills } from "../skills/bundled";
+import { buildSkillsPrompt } from "../skills/prompt";
+import type { SkillMetadata } from "../skills/types";
+import { skillTool } from "../tools/skill";
 import { bashTool } from "../tools/bash";
 import { commandOutputTool } from "../tools/command-output";
 import { generateImageTool, MAX_IMAGES_PER_RUN } from "../tools/generate-image";
@@ -88,6 +92,7 @@ const callOptionsSchema = z.object({
     .describe("Sandbox for file system and shell operations"),
   model: z.custom<LanguageModel>().describe("Language model for this subagent"),
   screenshotStore: z.custom<ScreenshotStore>().optional(),
+  skills: z.custom<SkillMetadata[]>().optional(),
 });
 
 export type DesignCallOptions = z.infer<typeof callOptionsSchema>;
@@ -103,6 +108,7 @@ export const designSubagent = new ToolLoopAgent({
   }),
   instructions: DESIGN_SYSTEM_PROMPT,
   tools: {
+    skill: skillTool,
     read: readFileTool(),
     write: writeFileTool(),
     edit: editFileTool(),
@@ -122,6 +128,7 @@ export const designSubagent = new ToolLoopAgent({
       throw new Error("Design subagent requires task call options.");
     }
 
+    const skills = withBundledSkills(options.skills, "design");
     const sandbox = options.sandbox;
     const model = options.model ?? settings.model;
     return {
@@ -131,6 +138,8 @@ export const designSubagent = new ToolLoopAgent({
 
 ${SUBAGENT_WORKING_DIR}
 
+${buildSkillsPrompt(skills)}
+
 ## Your Task
 ${options.task}
 
@@ -139,6 +148,7 @@ ${options.instructions}
 
 ${SUBAGENT_REMINDER}`,
       experimental_context: {
+        skills,
         sandbox,
         model,
         screenshotStore: options.screenshotStore,

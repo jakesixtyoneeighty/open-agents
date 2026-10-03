@@ -21,6 +21,7 @@ export {
   openAgent,
 } from "./open-agent";
 // Skills exports
+export { withBundledSkills } from "./skills/bundled";
 export { discoverSkills, parseSkillFrontmatter } from "./skills/discovery";
 export { extractSkillBody, substituteArguments } from "./skills/loader";
 export type {

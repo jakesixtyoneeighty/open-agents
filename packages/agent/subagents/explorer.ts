@@ -2,6 +2,10 @@ import type { LanguageModel } from "ai";
 import { stepCountIs, ToolLoopAgent } from "ai";
 import { gateway, type ModelConfig } from "../models";
 import { z } from "zod";
+import { withBundledSkills } from "../skills/bundled";
+import { buildSkillsPrompt } from "../skills/prompt";
+import type { SkillMetadata } from "../skills/types";
+import { skillTool } from "../tools/skill";
 import { bashTool } from "../tools/bash";
 import { commandOutputTool } from "../tools/command-output";
 import { projectReadMessages } from "../context-management/read-projection";
@@ -75,6 +79,7 @@ const callOptionsSchema = z.object({
     .describe("Sandbox for file system and shell operations"),
   model: z.custom<LanguageModel>().describe("Language model for this subagent"),
   screenshotStore: z.custom<ScreenshotStore>().optional(),
+  skills: z.custom<SkillMetadata[]>().optional(),
 });
 
 export type ExplorerCallOptions = z.infer<typeof callOptionsSchema>;
@@ -90,6 +95,7 @@ export const explorerSubagent = new ToolLoopAgent({
   }),
   instructions: EXPLORER_SYSTEM_PROMPT,
   tools: {
+    skill: skillTool,
     read: readFileTool(),
     grep: grepTool(),
     glob: globTool(),
@@ -105,6 +111,7 @@ export const explorerSubagent = new ToolLoopAgent({
       throw new Error("Explorer subagent requires task call options.");
     }
 
+    const skills = withBundledSkills(options.skills, "explorer");
     const sandbox = options.sandbox;
     const model = options.model ?? settings.model;
     return {
@@ -114,6 +121,8 @@ export const explorerSubagent = new ToolLoopAgent({
 
 ${SUBAGENT_WORKING_DIR}
 
+${buildSkillsPrompt(skills)}
+
 ## Your Task
 ${options.task}
 
@@ -122,6 +131,7 @@ ${options.instructions}
 
 ${EXPLORER_REMINDER}`,
       experimental_context: {
+        skills,
         sandbox,
         model,
       },

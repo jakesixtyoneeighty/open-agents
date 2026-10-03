@@ -11,7 +11,9 @@
     "check": "ultracite check",
     "lint": "ultracite check",
     "fix": "ultracite fix",
-    "ci": "pnpm check && pnpm typecheck && pnpm test:isolated && pnpm --dir apps/web db:check",
+    "ci": "pnpm check && pnpm skills:check && pnpm typecheck && pnpm test:isolated && pnpm --dir apps/web db:check",
+    "skills:build": "node scripts/build-runtime-skills.ts",
+    "skills:check": "node scripts/build-runtime-skills.ts --check",
     "test:isolated": "node scripts/test-isolated.ts",
     "test:verbose": "bun test --reporter=junit --reporter-outfile /dev/stdout"
   },

@@ -1,4 +1,4 @@
-import { discoverSkills } from "@open-agents/agent";
+import { discoverSkills, withBundledSkills } from "@open-agents/agent";
 import { connectSandbox } from "@open-agents/sandbox";
 import {
   requireAuthenticatedUser,
@@ -30,7 +30,7 @@ type RouteContext = {
 function toSkillSuggestions(
   skills: Awaited<ReturnType<typeof discoverSkills>>,
 ): SkillSuggestion[] {
-  return skills
+  return withBundledSkills(skills)
     .filter((skill) => skill.options.userInvocable !== false)
     .map((skill) => ({
       name: skill.name,

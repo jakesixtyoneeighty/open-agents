@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "archiveSha256": "04ca057ecea3b4411def493079443f9bf0b78cc5c64dde7b4dcb239a08761b6e",
+  "sources": [
+    {
+      "id": "mattpocock",
+      "url": "https://github.com/mattpocock/skills",
+      "revision": "3cca18b368ae95cdbdebbff572ccafa662551015"
+    },
+    {
+      "id": "superpowers",
+      "url": "https://github.com/obra/superpowers",
+      "revision": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797"
+    },
+    {
+      "id": "vercel",
+      "url": "https://github.com/vercel-labs/agent-skills",
+      "revision": "063bee94c3f4df8453406c830b0a7df0f2860278"
+    }
+  ],
+  "skills": [
+    {
+      "id": "mattpocock/codebase-design",
+      "source": "mattpocock",
+      "path": "skills/vendor/mattpocock/codebase-design",
+      "upstreamPath": "skills/engineering/codebase-design",
+      "sha256": "826e65f8d718794b0647dd50122d3c388c6e860c608d6aa313d7d716ff535933"
+    },
+    {
+      "id": "mattpocock/diagnosing-bugs",
+      "source": "mattpocock",
+      "path": "skills/vendor/mattpocock/diagnosing-bugs",
+      "upstreamPath": "skills/engineering/diagnosing-bugs",
+      "sha256": "3eaddfa5b028a2d4ca47731bb7a64cae28a0e8cb1ca802d201e754a1cc23d5a3"
+    },
+    {
+      "id": "mattpocock/research",
+      "source": "mattpocock",
+      "path": "skills/vendor/mattpocock/research",
+      "upstreamPath": "skills/engineering/research",
+      "sha256": "b1976e3b4a7cdcee2f7ade52c0cf072bafdbac9cf3284568cab1aa258e584e69"
+    },
+    {
+      "id": "mattpocock/tdd",
+      "source": "mattpocock",
+      "path": "skills/vendor/mattpocock/tdd",
+      "upstreamPath": "skills/engineering/tdd",
+      "sha256": "2da488cb71308948f58928bbbae6d55d060d5414d5bb3ec7ee7d4bb73c670442"
+    },
+    {
+      "id": "superpowers/verification-before-completion",
+      "source": "superpowers",
+      "path": "skills/vendor/superpowers/verification-before-completion",
+      "upstreamPath": "skills/verification-before-completion",
+      "sha256": "d8a53168f152b6163bd3447f7d4c20b6b4cddf6bd907f9aa5856b514c032db0e"
+    },
+    {
+      "id": "vercel/composition-patterns",
+      "source": "vercel",
+      "path": "skills/vendor/vercel/composition-patterns",
+      "upstreamPath": "skills/composition-patterns",
+      "sha256": "646f870906914c3787efa7403ec4716dfddf78fc17a12ec1f0556caf2143ac66"
+    }
+  ]
+}

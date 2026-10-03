@@ -2,6 +2,11 @@
 
 Hard-won knowledge from building this codebase. When you make a mistake or discover a non-obvious behavior, add it here.
 
+## Runtime skills
+
+- Repository development skills do not automatically reach agents in user sandboxes. Bundle app defaults into the agent runtime, merge them after discovery/cache reads, and pass the catalog plus a skill loader to child agents. Keep project overrides and planning/review tool restrictions intact.
+- Runtime skills must follow the user's repository tooling, not Open Agents' own pnpm/Bun scripts. Keep bundled instructions self-contained and check that generated deployment content matches the editable skill sources.
+
 ## General / Tooling
 
 - Agent role defaults live in `packages/agent/open-agent.ts` and `packages/agent/subagents/`; keep the main default aligned with `APP_DEFAULT_MODEL_ID` in `apps/web/lib/models.ts`. Explicit saved model selections and subagent overrides take precedence. Verify exact model IDs against the live Gateway catalog: Opus 5.5 is `anthropic/claude-opus-5.5`, not `anthropic/opus-5.5`. Mocked provider-option tests cannot establish that a model ID is routable.
