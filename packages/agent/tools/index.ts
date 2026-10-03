@@ -5,6 +5,7 @@ export { grepTool } from "./grep";
 export { globTool } from "./glob";
 export { bashTool, commandNeedsApproval } from "./bash";
 export { commandOutputTool } from "./command-output";
+export { runChecksTool } from "./run-checks";
 export {
   taskTool,
   type TaskPendingToolCall,

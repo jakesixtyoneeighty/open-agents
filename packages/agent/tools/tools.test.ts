@@ -1,5 +1,6 @@
 import { createLocalWorkspaceEditor } from "../../sandbox/workspace-edit/test-harness";
 import { createLocalWorkspaceSearcher } from "../../sandbox/workspace-search/test-harness";
+import { createLocalCheckSandbox } from "./checks/test-sandbox";
 import { createHash } from "node:crypto";
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
@@ -80,6 +81,7 @@ const { MAX_BODY_LENGTH, isAllowedWebUrl, webFetchTool } =
 const { globTool } = await import("./glob");
 const { grepTool } = await import("./grep");
 const { readFileTool } = await import("./read");
+const { runChecksTool } = await import("./run-checks");
 const { skillTool } = await import("./skill");
 const { taskTool } = await import("./task");
 const { todoWriteTool } = await import("./todo");
@@ -465,6 +467,57 @@ describe("tools execute behavior", () => {
     expect(
       await globTool().execute?.({ cursor }, executionOptions(context)),
     ).toMatchObject({ count: 1, files: [{ path: "src/deep/b.ts", size: 3 }] });
+  });
+
+  test("runChecksTool runs default checks, rejects unknown ones and gates arbitrary scripts", async () => {
+    const workingDirectory = await mkdtemp(
+      path.join(tmpdir(), "agent-checks-"),
+    );
+    await writeFile(
+      path.join(workingDirectory, "package.json"),
+      JSON.stringify({
+        packageManager: "npm@10.0.0",
+        scripts: { typecheck: "exit 0", deploy: "exit 0" },
+      }),
+    );
+    const sandbox = createLocalCheckSandbox(
+      workingDirectory,
+      path.join(workingDirectory, ".state"),
+    ) as unknown as Record<string, unknown>;
+    const context = createContext(sandbox);
+    const tool = runChecksTool();
+    expect(
+      await getNeedsApprovalResult(
+        tool.needsApproval,
+        { checks: ["typecheck"] },
+        context,
+      ),
+    ).toBe(false);
+    expect(
+      await getNeedsApprovalResult(
+        tool.needsApproval,
+        { checks: ["deploy"] },
+        context,
+      ),
+    ).toBe(true);
+    expect(await tool.execute?.({}, executionOptions(context))).toMatchObject({
+      success: true,
+      passed: false,
+      revision: null,
+      checks: [{ id: "typecheck", status: "passed", exitCode: 0 }],
+    });
+    expect(
+      await tool.execute?.({ checks: ["nope"] }, executionOptions(context)),
+    ).toMatchObject({
+      success: false,
+      error: expect.stringContaining("Available: typecheck"),
+    });
+    expect(
+      await tool.execute?.({ path: "../elsewhere" }, executionOptions(context)),
+    ).toEqual({
+      success: false,
+      error: "Path must stay within the workspace.",
+    });
   });
 
   test("bashTool handles detached and non-detached execution", async () => {

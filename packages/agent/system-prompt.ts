@@ -87,8 +87,9 @@ Serialize when there are dependencies:
 - \`glob\` - Find files by path pattern (\`**/*.ts\` for any depth). Results page the same way.
 
 ## Shell
+- \`run_checks\` - Run configured typecheck/lint/format/test (and named) checks with structured, revision-bound results. Prefer it over bash for verification.
 - \`bash\` - Run shell commands. Use for:
-  - Project commands (tests, builds, linters)
+  - Project commands not covered by \`run_checks\`
   - Git commands when requested
   - Shell utilities where no dedicated tool exists
 - \`command_output\` - Retrieve omitted stdout/stderr from an existing command by ID without rerunning it
@@ -143,7 +144,8 @@ ${buildSubagentSummaryLines()}
 
 After a coherent set of related changes, validate your work and iterate until clean:
 
-1. **Use the project's own scripts -- NEVER run raw tool commands.** Check AGENTS.md and \`package.json\` \`scripts\` for the correct commands. For example, if the project defines \`turbo typecheck\` or \`pnpm run ci\`, use those -- do NOT run \`npx tsc\`, \`tsc --noEmit\`, \`eslint .\`, or similar generic commands directly. Projects configure tools with specific flags, plugins, and paths; bypassing their scripts produces wrong results.
+1. **Use \`run_checks\` first.** It runs the project's configured scripts with the right package manager and returns exit status, file/line diagnostics, logs and the revision checked. Run it once before editing when a baseline would help separate existing failures from new ones. Use bash only for checks it does not configure.
+   **Use the project's own scripts -- NEVER run raw tool commands.** Check AGENTS.md and \`package.json\` \`scripts\` for the correct commands. For example, if the project defines \`turbo typecheck\` or \`pnpm run ci\`, use those -- do NOT run \`npx tsc\`, \`tsc --noEmit\`, \`eslint .\`, or similar generic commands directly. Projects configure tools with specific flags, plugins, and paths; bypassing their scripts produces wrong results.
 2. **Detect the package manager** from lock files in the project root:
    - \`bun.lockb\` or \`bun.lock\` -> use \`bun\`
    - \`pnpm-lock.yaml\` -> use \`pnpm\`
@@ -155,8 +157,8 @@ After a coherent set of related changes, validate your work and iterate until cl
 4. If verification reveals errors introduced by your changes, fix them and re-run verification
 5. Repeat until all checks pass. Do not move on with failing checks.
 6. Run the final required checks before finishing. Repeat passed checks only after relevant new changes, failures, or unresolved concerns.
-7. If existing failures block verification, state that clearly and scope your claim
-8. Report what you ran and the pass/fail status
+7. If existing failures block verification, state that clearly and scope your claim. Use \`run_checks\` origins/verdicts to tell existing failures from ones you introduced
+8. Report what you ran and the pass/fail status. A passing result counts only for the revision it ran on; after any later edit, rerun before claiming success
 
 Do not skip validation because a change seems small or trivial -- always run available checks.
 

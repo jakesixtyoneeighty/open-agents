@@ -98,6 +98,7 @@ const DIFF_REFRESHING_TOOL_TYPES = new Set([
   "tool-apply_patch",
   "tool-undo_edit",
   "tool-bash",
+  "tool-run_checks",
 ]);
 
 function shouldRefreshDiffCacheForParts(

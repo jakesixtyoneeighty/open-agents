@@ -144,6 +144,14 @@ Hard-won knowledge from building this codebase. When you make a mistake or disco
 - Every page rendering `MultiFileDiff` needs `DiffsProvider`, including shared chats and browser fixtures. Without it, the custom element can render an empty diff without a console error.
 - Subagent `response.messages` contains projected tool outputs. Capture full edit results from `fullStream` and restore them only for persisted task history, or compact model output will also erase transcript diffs.
 
+## Structured checks
+
+- Bind check evidence to a working-tree revision, not to HEAD: agents verify uncommitted edits. Hashing through a temporary index (copy the index to a `GIT_INDEX_FILE`, `git add -A`, `git write-tree`) covers untracked files and honors .gitignore without touching the user's index.
+- Compute a revision after each check as well as before; formatters and code generators can change files during a "check", and that result describes no single revision.
+- Task runners print package-relative paths (turbo runs tsc inside `packages/agent`), so resolve diagnostic files against tracked files by unique suffix rather than assuming the check's cwd.
+- oxlint rejects control characters in regex literals, and oxfmt can move a `disable-next-line` comment off the regex line. Build ANSI patterns from `String.fromCharCode` instead.
+- Worktree-isolated agent sessions refuse compound shell commands (and shell text mentioning git) that cannot be proven to stay in the worktree; write files with the editor and run one plain command per call.
+
 ## Workspace search
 
 - Search continuation must read stored results, not rerun the search with a skip count: files change between pages, so offsets into a fresh scan can drop or repeat matches. Snapshot candidates, persist entries, and resume an interrupted scan from the next unscanned file.

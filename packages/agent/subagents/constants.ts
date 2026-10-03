@@ -32,8 +32,9 @@ Your final message MUST contain exactly two sections:
 
 /** Validation rules for subagents that modify files. */
 export const SUBAGENT_VALIDATE_RULES = `### VALIDATE YOUR CHANGES
-- After making code changes, ALWAYS run available validation commands (typecheck, lint, CI scripts)
-- Check AGENTS.md and \`package.json\` scripts for project-specific commands (e.g., \`pnpm run ci\`, \`turbo typecheck\`, \`turbo lint\`)
+- After making code changes, ALWAYS run available validation (typecheck, lint, tests) with \`run_checks\`; it uses the project's configured scripts and reports diagnostics, new vs existing failures and the revision checked
+- Use bash only for validation \`run_checks\` does not configure, after checking AGENTS.md and \`package.json\` scripts (e.g., \`pnpm run ci\`)
+- A pass applies only to the revision it ran on; rerun after further edits before reporting success
 - NEVER run raw tool commands like \`npx tsc\`, \`tsc --noEmit\`, or \`eslint .\` -- always use the project's configured scripts
 - Fix any errors or warnings your changes introduce before finishing
 - Do not skip validation because a change seems small or trivial`;

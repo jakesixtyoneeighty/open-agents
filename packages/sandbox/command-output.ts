@@ -35,6 +35,21 @@ export function commandOutputWindow(
   };
 }
 
+/** Leading output for parsers; the SDK log keeps the complete streams. */
+export function leadingOutput(stdout: string, stderr: string, limit: number) {
+  const bounded = Math.min(5_000_000, Math.max(1000, Math.floor(limit)));
+  const clip = (text: string) => {
+    let end = Math.min(text.length, bounded);
+    if (splitsPair(text, end)) end--;
+    return text.slice(0, end);
+  };
+  return {
+    stdout: clip(stdout),
+    stderr: clip(stderr),
+    truncated: stdout.length > bounded || stderr.length > bounded,
+  };
+}
+
 function splitsPair(text: string, index: number) {
   return (
     /[\uD800-\uDBFF]/.test(text.charAt(index - 1)) &&

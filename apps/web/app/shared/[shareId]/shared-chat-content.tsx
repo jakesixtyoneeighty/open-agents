@@ -26,6 +26,7 @@ import { AssistantMessageGroups } from "@/components/assistant-message-groups";
 import { SnippetChip } from "@/components/snippet-chip";
 import { ThinkingBlock } from "@/components/thinking-block";
 import { ToolCall } from "@/components/tool-call";
+import { CheckFreshnessProvider } from "@/components/tool-call/check-freshness";
 import { ScreenshotSourceProvider } from "@/components/tool-call/screenshot-gallery/screenshot-source-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -283,17 +284,21 @@ export function SharedChatContent({
                       <div className="h-px flex-1 bg-border" />
                     </div>
                   )}
-                  <div className="space-y-4">
-                    {messagesWithTiming.map(({ message: m, durationMs }) => (
-                      <SharedMessage
-                        key={m.id}
-                        message={m}
-                        durationMs={durationMs}
-                        isStreaming={false}
-                        lastUserMessageSentAt={lastUserMessageSentAt}
-                      />
-                    ))}
-                  </div>
+                  <CheckFreshnessProvider
+                    messages={messagesWithTiming.map(({ message }) => message)}
+                  >
+                    <div className="space-y-4">
+                      {messagesWithTiming.map(({ message: m, durationMs }) => (
+                        <SharedMessage
+                          key={m.id}
+                          message={m}
+                          durationMs={durationMs}
+                          isStreaming={false}
+                          lastUserMessageSentAt={lastUserMessageSentAt}
+                        />
+                      ))}
+                    </div>
+                  </CheckFreshnessProvider>
                 </div>
               ))}
               {/* Inline streaming status indicator */}
