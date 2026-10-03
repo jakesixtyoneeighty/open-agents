@@ -166,3 +166,10 @@ Hard-won knowledge from building this codebase. When you make a mistake or disco
 - Playwright route handlers are not invoked again for redirects followed by `route.continue()`. The verification runtime fetches document responses with `maxRedirects: 0` and blocks redirects before fulfilling them; callers must use the final local preview URL directly.
 - Save browser-call intent before sending input events and save the resulting evidence afterward. On interrupted intent, report unknown effects instead of replaying a potentially submitted form. Real Chromium tests need the exact Playwright browser revision; add a package script and install that revision in CI.
 - Sandbox `exec` truncates stdout at 50,000 characters by default. Transfer structured browser evidence through an SDK-read result file; even bounded fields can exceed the command limit after JSON escaping.
+
+## Process control
+
+- A detached launch does not prove a server is ready. Keep launch, liveness, readiness, wait expiry and runtime timeout separate in outputs and UI; a successful readiness endpoint also does not prove the launched job owns that port.
+- Persist launch intent before spawning and derive ownership from the host chat/task scope. A controller restart must expire uncertain jobs rather than replaying commands from disk.
+- Let a live process-group leader terminate its own group over IPC, so stop does not look up a potentially reused PID or kill by shared port/name. Keep the leader alive through cleanup, and wait for pipe closure before confirming termination. This covers descendants that stay in the group; self-daemonizing commands need separate lifecycle management.
+- Release the controller startup lock before bounded wait requests; holding it for the entire wait delays another caller's stop/status. Drain stdout/stderr after the retention cap so noisy jobs do not block on full pipes.

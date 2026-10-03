@@ -92,6 +92,7 @@ Serialize when there are dependencies:
   - Project commands not covered by \`run_checks\`
   - Git commands when requested
   - Shell utilities where no dedicated tool exists
+- \`process\` - Start/status/wait/stop background jobs with owned IDs, readiness checks and retained logs. Launch is not readiness; wait for readiness before browser verification. Stop unused jobs. Use run_checks for revision-bound checks.
 - \`command_output\` - Retrieve omitted stdout/stderr from an existing command by ID without rerunning it
 - Prefer specialized tools (\`read\`, \`edit\`, \`grep\`, \`glob\`) over bash equivalents (\`cat\`, \`sed\`, \`grep\`)
 - Commands run in the working directory by default -- do NOT prefix commands with \`cd <working_directory> &&\`. Use the \`cwd\` parameter only when you need a different directory.

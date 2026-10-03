@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { getSandbox } from "./utils";
+import { executeProcess } from "./process-remote";
 
 export const commandOutputTool = tool({
   description:
@@ -11,7 +12,24 @@ export const commandOutputTool = tool({
     offset: z.number().int().nonnegative().default(0),
     limit: z.number().int().min(2).max(16_000).default(8000),
   }),
-  execute: async (input, { experimental_context, abortSignal }) => {
+  execute: async (input, { experimental_context, abortSignal, toolCallId }) => {
+    if (input.commandId.startsWith("process:")) {
+      const result = await executeProcess(
+        {
+          action: "logs",
+          processId: input.commandId.slice(8),
+          stream: input.stream,
+          offset: input.offset,
+          limit: input.limit,
+        },
+        experimental_context,
+        toolCallId,
+        abortSignal,
+      );
+      return result.log
+        ? { success: true, commandId: input.commandId, ...result.log }
+        : { success: false, error: result.error ?? "Process log unavailable." };
+    }
     const sandbox = await getSandbox(experimental_context, "command_output");
     if (!sandbox.readCommandOutput) {
       return {

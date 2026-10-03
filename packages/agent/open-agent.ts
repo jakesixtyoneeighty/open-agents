@@ -1,3 +1,4 @@
+import { processTool } from "./tools/process";
 import {
   browserSessionTool,
   browserInspectTool,
@@ -112,6 +113,7 @@ const baseTools = {
   glob: globTool(),
   bash: bashTool(),
   command_output: commandOutputTool,
+  process: processTool,
   run_checks: runChecksTool(),
   browser_session: browserSessionTool,
   browser_inspect: browserInspectTool,

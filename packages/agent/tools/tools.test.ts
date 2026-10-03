@@ -537,30 +537,11 @@ describe("tools execute behavior", () => {
       executionOptions(createContext(noDetachSandbox)),
     );
 
-    expect(detachedUnsupported).toEqual({
+    expect(detachedUnsupported).toMatchObject({
       success: false,
       exitCode: null,
       stdout: "",
-      stderr:
-        "Detached mode is not supported in this sandbox environment. Only cloud sandboxes support background processes.",
-    });
-
-    const detachedSandbox = {
-      ...noDetachSandbox,
-      execDetached: async () => ({ commandId: "cmd-1" }),
-    };
-
-    const detachedResult = await bashTool().execute?.(
-      { command: "npm run dev", detached: true },
-      executionOptions(createContext(detachedSandbox)),
-    );
-
-    expect(detachedResult).toEqual({
-      success: true,
-      exitCode: null,
-      stdout:
-        "Process started in background (command ID: cmd-1). The server is now running.",
-      stderr: "",
+      stderr: expect.stringContaining("host did not supply a chat/task scope"),
     });
 
     const normalResult = await bashTool().execute?.(

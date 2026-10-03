@@ -2,6 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import * as path from "path";
 import { getSandbox } from "./utils";
+import { executeProcess } from "./process-remote";
 
 const TIMEOUT_MS = 120_000;
 
@@ -107,7 +108,7 @@ IMPORTANT:
 - Never chain commands with ';' or '&&' - use separate tool calls for each logical step
 - Never use interactive commands (vim, nano, top, bash, ssh, etc.)
 - Always quote file paths that may contain spaces
-- Use detached: true to start dev servers or other long-running processes in the background
+- Prefer process start for background jobs with readiness and lifecycle controls; detached: true is a compatibility alias without a readiness check
 
 EXAMPLES:
 - Run the test suite: command: "npm test"
@@ -117,7 +118,7 @@ EXAMPLES:
     inputSchema: bashInputSchema,
     execute: async (
       { command, cwd, detached },
-      { experimental_context, abortSignal },
+      { experimental_context, abortSignal, toolCallId },
     ) => {
       const sandbox = await getSandbox(experimental_context, "bash");
       const workingDirectory = sandbox.workingDirectory;
@@ -129,34 +130,28 @@ EXAMPLES:
           : path.resolve(workingDirectory, cwd)
         : workingDirectory;
 
-      // Detached mode: start the command in the background and return immediately
+      // Compatibility path: detached bash uses the same owned process controller.
       if (detached) {
-        if (!sandbox.execDetached) {
-          return {
-            success: false,
-            exitCode: null,
-            stdout: "",
-            stderr:
-              "Detached mode is not supported in this sandbox environment. Only cloud sandboxes support background processes.",
-          };
-        }
-
-        try {
-          const { commandId } = await sandbox.execDetached(command, workingDir);
-          return {
-            success: true,
-            exitCode: null,
-            stdout: `Process started in background (command ID: ${commandId}). The server is now running.`,
-            stderr: "",
-          };
-        } catch (error) {
-          return {
-            success: false,
-            exitCode: null,
-            stdout: "",
-            stderr: error instanceof Error ? error.message : String(error),
-          };
-        }
+        const result = await executeProcess(
+          { action: "start", command, cwd, timeoutSeconds: 3600 },
+          experimental_context,
+          toolCallId,
+          abortSignal,
+        );
+        return {
+          success: result.success,
+          exitCode: result.process?.exitCode ?? null,
+          stdout: result.process
+            ? `Background launch recorded. State: ${result.process.state}; readiness: ${result.process.readiness}. Use process status/wait/logs/stop with processId ${result.process.processId}.`
+            : "",
+          stderr: result.error ?? "",
+          ...(result.process
+            ? {
+                processId: result.process.processId,
+                commandId: result.process.commandId,
+              }
+            : {}),
+        };
       }
 
       const result = await sandbox.exec(command, workingDir, TIMEOUT_MS, {

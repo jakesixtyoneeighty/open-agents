@@ -99,6 +99,7 @@ const DIFF_REFRESHING_TOOL_TYPES = new Set([
   "tool-undo_edit",
   "tool-bash",
   "tool-run_checks",
+  "tool-process",
 ]);
 
 function shouldRefreshDiffCacheForParts(

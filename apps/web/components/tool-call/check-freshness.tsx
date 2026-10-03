@@ -38,6 +38,7 @@ function mutationOf(part: WebAgentUIMessage["parts"][number]) {
         )
         ? "stale"
         : null;
+    case "tool-process":
     case "tool-bash":
       return "maybe_stale";
     case "tool-task": {

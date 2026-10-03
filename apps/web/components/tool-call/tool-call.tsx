@@ -1,4 +1,6 @@
 "use client";
+import { ProcessRenderer } from "./renderers/process-renderer";
+import { CommandOutputRenderer } from "./renderers/command-output-renderer";
 import { BrowserRenderer } from "./renderers/browser-renderer";
 
 /**
@@ -69,6 +71,10 @@ export function ToolCall({
       );
     case "tool-screenshot":
       return <ScreenshotRenderer part={part} state={state} />;
+    case "tool-process":
+      return <ProcessRenderer part={part} state={state} {...approvalProps} />;
+    case "tool-command_output":
+      return <CommandOutputRenderer part={part} state={state} />;
     case "tool-bash":
       return <BashRenderer part={part} state={state} {...approvalProps} />;
     case "tool-read":

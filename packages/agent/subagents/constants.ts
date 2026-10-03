@@ -40,7 +40,9 @@ export const SUBAGENT_VALIDATE_RULES = `### VALIDATE YOUR CHANGES
 - Do not skip validation because a change seems small or trivial`;
 
 /** Bash usage rules for subagents with shell access. */
-export const SUBAGENT_BASH_RULES = `## BASH COMMANDS
+export const SUBAGENT_BASH_RULES = `## BACKGROUND PROCESSES
+Use process start/status/wait/stop/logs for background jobs. Launch is not readiness; configure a readiness probe and wait before browser verification. Stop unused jobs. Process IDs belong only to this task.
+## BASH COMMANDS
 - All bash commands automatically run in the working directory — NEVER prepend \`cd <working-directory> &&\` or similar to commands
 - Just run the command directly (e.g., \`npm test\`)`;
 

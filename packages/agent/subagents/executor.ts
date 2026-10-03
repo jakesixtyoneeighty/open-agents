@@ -1,3 +1,4 @@
+import { processTool } from "../tools/process";
 import {
   browserSessionTool,
   browserInspectTool,
@@ -103,6 +104,7 @@ export const executorSubagent = new ToolLoopAgent({
     glob: globTool(),
     bash: bashTool(),
     command_output: commandOutputTool,
+    process: processTool,
     run_checks: runChecksTool(),
     browser_session: browserSessionTool,
     browser_inspect: browserInspectTool,

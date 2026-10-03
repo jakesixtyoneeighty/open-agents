@@ -1,4 +1,6 @@
 "use client";
+import { ProcessRenderer } from "./process-renderer";
+import { CommandOutputRenderer } from "./command-output-renderer";
 
 import type { TaskPendingToolCall } from "@open-agents/agent";
 import { formatTokens, toRelativePath } from "@open-agents/shared";
@@ -53,6 +55,16 @@ const TOOL_ICON_CLASS = "h-3.5 w-3.5";
 
 function getToolMeta(toolName: string): ToolMeta {
   switch (toolName) {
+    case "process":
+      return {
+        displayName: "Process",
+        icon: <Terminal className={TOOL_ICON_CLASS} />,
+      };
+    case "command_output":
+      return {
+        displayName: "Command logs",
+        icon: <Terminal className={TOOL_ICON_CLASS} />,
+      };
     case "bash":
       return {
         displayName: "Bash",
@@ -157,6 +169,10 @@ function getToolSummary(name: string, input: unknown): string {
       return Array.isArray(inp.checks)
         ? inp.checks.join(", ")
         : "default checks";
+    case "process":
+      return String(inp.command ?? inp.action ?? "process");
+    case "command_output":
+      return String(inp.commandId ?? "logs");
     case "bash":
       return inp.command ? String(inp.command) : "";
     case "web_search":
@@ -330,6 +346,10 @@ function SubagentToolCall({ part }: { part: WebAgentUIToolPart }) {
   const cwd = DEFAULT_WORKING_DIRECTORY;
 
   switch (part.type) {
+    case "tool-process":
+      return <ProcessRenderer part={part} state={state} />;
+    case "tool-command_output":
+      return <CommandOutputRenderer part={part} state={state} />;
     case "tool-bash":
       return <BashRenderer part={part} state={state} />;
     case "tool-read":
