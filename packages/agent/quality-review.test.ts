@@ -10,6 +10,9 @@ test("quality passes allow source inspection and screenshots without project mut
     glob: stub,
     grep: stub,
     screenshot: stub,
+    browser_session: stub,
+    browser_inspect: stub,
+    browser_action: stub,
     ask_user_question: stub,
     write: stub,
     edit: stub,
@@ -21,6 +24,7 @@ test("quality passes allow source inspection and screenshots without project mut
   };
   expect(Object.keys(getQualityReviewTools(all)).sort()).toEqual([
     "ask_user_question",
+    "browser_inspect",
     "glob",
     "grep",
     "read",

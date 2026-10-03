@@ -1,4 +1,9 @@
 import {
+  browserSessionTool,
+  browserInspectTool,
+  browserActionTool,
+} from "./tools/browser";
+import {
   multiEditTool,
   applyPatchTool,
   undoEditTool,
@@ -71,6 +76,7 @@ const callOptionsSchema = z.object({
   planningMode: z.boolean().optional(),
   qualityReviewMode: z.boolean().optional(),
   screenshotStore: z.custom<ScreenshotStore>().optional(),
+  browserScope: z.string().optional(),
 });
 
 export type OpenAgentCallOptions = z.infer<typeof callOptionsSchema>;
@@ -105,6 +111,9 @@ const baseTools = {
   glob: globTool(),
   bash: bashTool(),
   command_output: commandOutputTool,
+  browser_session: browserSessionTool,
+  browser_inspect: browserInspectTool,
+  browser_action: browserActionTool,
   task: taskTool,
   ask_user_question: askUserQuestionTool,
   skill: skillTool,
@@ -196,6 +205,9 @@ export function createOpenAgent<
         instructions,
         experimental_context: {
           sandbox,
+          browserScope: options.browserScope
+            ? `${options.browserScope}:${options.qualityReviewMode ? "review" : "build"}`
+            : undefined,
           skills,
           model: callModel,
           subagentModel,

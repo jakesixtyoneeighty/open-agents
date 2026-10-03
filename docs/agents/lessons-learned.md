@@ -151,3 +151,10 @@ Hard-won knowledge from building this codebase. When you make a mistake or disco
 - A per-line deadline cannot stop catastrophic backtracking inside one `RegExp.exec`. Run each file's synchronous scan through `vm.Script#runInContext` with a `timeout`, which interrupts the regex.
 - Pass user paths to `git ls-files` with `--literal-pathspecs`; Next.js route folders such as `[id]` are otherwise pathspec globs.
 - Bun's `toMatchObject` can replace matched properties of the received object with the asymmetric matcher (for example `expect.any(String)`). Read values you reuse, such as cursors, before asserting.
+
+## Browser verification
+
+- Browser session ownership must come from the host chat ID and child task call ID, not a model-supplied owner or a process-local map. Keep review contexts separate from build contexts, and filter interaction tools server-side.
+- Playwright route handlers are not invoked again for redirects followed by `route.continue()`. The verification runtime fetches document responses with `maxRedirects: 0` and blocks redirects before fulfilling them; callers must use the final local preview URL directly.
+- Save browser-call intent before sending input events and save the resulting evidence afterward. On interrupted intent, report unknown effects instead of replaying a potentially submitted form. Real Chromium tests need the exact Playwright browser revision; add a package script and install that revision in CI.
+- Sandbox `exec` truncates stdout at 50,000 characters by default. Transfer structured browser evidence through an SDK-read result file; even bounded fields can exceed the command limit after JSON escaping.

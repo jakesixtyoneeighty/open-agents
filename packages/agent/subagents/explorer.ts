@@ -76,6 +76,7 @@ const callOptionsSchema = z.object({
     .describe("Sandbox for file system and shell operations"),
   model: z.custom<LanguageModel>().describe("Language model for this subagent"),
   screenshotStore: z.custom<ScreenshotStore>().optional(),
+  browserScope: z.string().optional(),
   skills: z.custom<SkillMetadata[]>().optional(),
 });
 

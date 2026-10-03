@@ -39,6 +39,9 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Install browser for verification tests
+        run: pnpm --filter @open-agents/agent browser:install
+
       - name: Test
         run: pnpm test:isolated
 

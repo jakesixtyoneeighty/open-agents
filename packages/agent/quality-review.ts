@@ -5,6 +5,9 @@ import { getPlanningTools } from "./planning";
 export function getQualityReviewTools<T extends ToolSet>(tools: T): T {
   return {
     ...getPlanningTools(tools),
+    ...(tools.browser_inspect
+      ? { browser_inspect: tools.browser_inspect }
+      : {}),
     ...(tools.screenshot ? { screenshot: tools.screenshot } : {}),
   } as T;
 }

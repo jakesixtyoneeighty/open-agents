@@ -1,4 +1,9 @@
 import {
+  browserSessionTool,
+  browserInspectTool,
+  browserActionTool,
+} from "../tools/browser";
+import {
   multiEditTool,
   applyPatchTool,
   undoEditTool,
@@ -55,6 +60,7 @@ Example final response:
 ---
 
 ${SUBAGENT_VALIDATE_RULES}
+Use browser_session, browser_inspect, and browser_action for authorized local preview flows. Verify expected outcomes, keyboard focus and desktop/mobile behavior; screenshots alone do not prove interactions. Close browser sessions when finished.
 
 ## HOW TO APPLY THE ART DIRECTION RULES
 - The rules below are mandatory. Follow their operating order for every visual task.
@@ -99,6 +105,7 @@ const callOptionsSchema = z.object({
     .describe("Sandbox for file system and shell operations"),
   model: z.custom<LanguageModel>().describe("Language model for this subagent"),
   screenshotStore: z.custom<ScreenshotStore>().optional(),
+  browserScope: z.string().optional(),
   skills: z.custom<SkillMetadata[]>().optional(),
 });
 
@@ -126,6 +133,9 @@ export const designSubagent = new ToolLoopAgent({
     glob: globTool(),
     bash: bashTool(),
     command_output: commandOutputTool,
+    browser_session: browserSessionTool,
+    browser_inspect: browserInspectTool,
+    browser_action: browserActionTool,
     screenshot: screenshotTool,
     web_search: webSearchTool,
     generate_image: generateImageTool,
@@ -160,6 +170,7 @@ ${SUBAGENT_REMINDER}`,
       experimental_context: {
         skills,
         sandbox,
+        browserScope: options.browserScope,
         model,
         screenshotStore: options.screenshotStore,
       },

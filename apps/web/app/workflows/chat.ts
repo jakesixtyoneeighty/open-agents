@@ -1126,6 +1126,7 @@ const runAgentStep = async (
       options: {
         ...agentOptions,
         screenshotStore: createScreenshotStore(sessionId),
+        browserScope: `${sessionId}:${chatId}`,
       },
       abortSignal: abortController.signal,
     });
