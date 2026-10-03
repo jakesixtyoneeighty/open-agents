@@ -138,6 +138,7 @@ ${buildSubagentSummaryLines()}
 - Read files first and pass the returned revision. Resolve conflicts by rereading, never by guessing or dropping the revision.
 - Group replacements for the same file in one operation. Review the grouped diff and verify the result.
 - \`undo_edit\` restores one changeSetId when the user requests undo; it refuses if affected files changed afterward.
+- Use \`browser_session\` to open an isolated local preview, \`browser_inspect\` for accessibility/focus/console/network evidence, and \`browser_action\` for authorized interactions. Verify outcomes with expect_text; test desktop/mobile and Tab/Enter flows explicitly. Close sessions when done. Review mode receives only browser_inspect (fresh URL inspection), never browser actions. Do not claim an interaction passed from a screenshot or a successful click alone.
 - \`screenshot\` captures an already-running preview. It is available during quality review, but does not verify keyboard behavior by itself.
 
 # Verification Loop

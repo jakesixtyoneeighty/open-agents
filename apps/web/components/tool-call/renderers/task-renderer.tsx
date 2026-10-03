@@ -110,6 +110,13 @@ function getToolMeta(toolName: string): ToolMeta {
         displayName: "Search",
         icon: <Search className={TOOL_ICON_CLASS} />,
       };
+    case "browser_session":
+    case "browser_inspect":
+    case "browser_action":
+      return {
+        displayName: "Browser verification",
+        icon: <Globe className={TOOL_ICON_CLASS} />,
+      };
     case "screenshot":
       return {
         displayName: "Screenshot",
@@ -154,6 +161,10 @@ function getToolSummary(name: string, input: unknown): string {
       return inp.command ? String(inp.command) : "";
     case "web_search":
       return inp.query ? `"${inp.query}"` : "";
+    case "browser_session":
+    case "browser_inspect":
+    case "browser_action":
+      return String(inp.url ?? inp.sessionId ?? "preview");
     case "screenshot": {
       const viewport = inp.viewport ? ` (${inp.viewport})` : "";
       return inp.url ? `${inp.url}${viewport}` : "";

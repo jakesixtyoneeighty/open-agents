@@ -1,3 +1,4 @@
+import { getBrowserScope } from "./browser";
 import {
   type LanguageModelUsage,
   type ModelMessage,
@@ -138,7 +139,7 @@ IMPORTANT:
   outputSchema: taskOutputSchema,
   execute: async function* (
     { subagentType, task, instructions },
-    { experimental_context, abortSignal },
+    { experimental_context, abortSignal, toolCallId },
   ): AsyncGenerator<TaskToolOutput> {
     const sandboxContext = getSandboxContext(experimental_context, "task");
     const { agent: subagent, model: defaultModel } =
@@ -151,6 +152,9 @@ IMPORTANT:
         "Complete this task and provide a summary of what you accomplished.",
       options: {
         task,
+        browserScope: getBrowserScope(experimental_context)
+          ? `${getBrowserScope(experimental_context)}:task:${toolCallId}`
+          : undefined,
         instructions,
         sandbox: sandboxContext.sandbox,
         model,

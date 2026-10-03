@@ -1,4 +1,9 @@
 import {
+  browserSessionTool,
+  browserInspectTool,
+  browserActionTool,
+} from "../tools/browser";
+import {
   multiEditTool,
   applyPatchTool,
   undoEditTool,
@@ -55,6 +60,7 @@ Example final response:
 ---
 
 ${SUBAGENT_VALIDATE_RULES}
+Use browser_session, browser_inspect, and browser_action for authorized local preview flows. Verify expected outcomes, keyboard focus and desktop/mobile behavior; screenshots alone do not prove interactions. Close browser sessions when finished.
 
 ## TOOLS
 You have full access to file operations (read, write, edit, grep, glob) and bash commands. Use them to complete your task.
@@ -69,6 +75,7 @@ const callOptionsSchema = z.object({
     .describe("Sandbox for file system and shell operations"),
   model: z.custom<LanguageModel>().describe("Language model for this subagent"),
   screenshotStore: z.custom<ScreenshotStore>().optional(),
+  browserScope: z.string().optional(),
   skills: z.custom<SkillMetadata[]>().optional(),
 });
 
@@ -97,6 +104,9 @@ export const executorSubagent = new ToolLoopAgent({
     bash: bashTool(),
     command_output: commandOutputTool,
     run_checks: runChecksTool(),
+    browser_session: browserSessionTool,
+    browser_inspect: browserInspectTool,
+    browser_action: browserActionTool,
   },
   stopWhen: stepCountIs(SUBAGENT_STEP_LIMIT),
   callOptionsSchema,
@@ -128,6 +138,7 @@ ${SUBAGENT_REMINDER}`,
       experimental_context: {
         skills,
         sandbox,
+        browserScope: options.browserScope,
         model,
       },
     };

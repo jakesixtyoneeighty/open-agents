@@ -24,6 +24,7 @@ export interface AgentContext {
   subagentModel?: LanguageModel;
   github?: AgentGitHubContext;
   screenshotStore?: ScreenshotStore;
+  browserScope?: string;
 }
 
 export interface SandboxExecutionContext {

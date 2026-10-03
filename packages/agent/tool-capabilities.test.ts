@@ -35,3 +35,24 @@ test("quality review can access the real registered screenshot implementation", 
   );
   expect(getPlanningTools(openAgent.tools)).not.toHaveProperty("screenshot");
 });
+
+test("browser interactions are available only to build roles; review gets inspection", () => {
+  for (const agent of [openAgent, executorSubagent, designSubagent]) {
+    for (const name of ["browser_session", "browser_inspect", "browser_action"])
+      expect(agent.tools).toHaveProperty(name);
+  }
+  expect(getQualityReviewTools(openAgent.tools).browser_inspect).toBe(
+    openAgent.tools.browser_inspect,
+  );
+  for (const tools of [
+    getQualityReviewTools(openAgent.tools),
+    getPlanningTools(openAgent.tools),
+    explorerSubagent.tools,
+  ]) {
+    expect(tools).not.toHaveProperty("browser_action");
+    expect(tools).not.toHaveProperty("browser_session");
+  }
+  expect(getPlanningTools(openAgent.tools)).not.toHaveProperty(
+    "browser_inspect",
+  );
+});

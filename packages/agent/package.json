@@ -8,7 +8,8 @@
     ".": "./index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "browser:install": "playwright install --with-deps --only-shell chromium"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "catalog:",
@@ -21,7 +22,8 @@
     "@ai-sdk/devtools": "^0.0.15",
     "@open-agents/tsconfig": "workspace:*",
     "@types/bun": "1.3.12",
-    "@types/node": "^22"
+    "@types/node": "^22",
+    "playwright": "1.62.1"
   },
   "peerDependencies": {
     "typescript": "^5"

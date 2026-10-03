@@ -62,6 +62,7 @@ Inspect at most 10 relevant source files and 2 pages. Capture at most 4 screensh
 You have at most ${QUALITY_REVIEW_MAX_STEPS} model steps; reserve the final step for the report.
 Do not edit project files, execute shell commands, delegate, load executable skills, commit, push or create a PR.
 For mobile: inspect responsive layout, overflow, clipping, touch targets and viewport behavior; use mobile and desktop screenshots of an already-running preview when available.
+Use browser_inspect on an already-running local preview for accessibility snapshots, initial focus and console/network evidence. Inspection cannot perform clicks or keyboard input, so list interactive keyboard behavior as unverified unless supported by existing test evidence.
 For accessibility: inspect semantic structure, accessible names, labels, keyboard/focus behavior and contrast evidence. Screenshots alone do not verify keyboard or screen-reader behavior.
 For code: inspect correctness, error handling, authorization, state races and missing validation in the selected files.
 Report at most 5 actionable findings, ordered by severity, with stable IDs (F1 etc.), file/line or page evidence, impact and a proposed fix. If none are supported, say so.

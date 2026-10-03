@@ -59,3 +59,5 @@ export {
   sumLanguageModelUsage,
 } from "./usage";
 export type { AgentContext } from "./types";
+
+export type { BrowserOutput } from "./tools/browser-schema";

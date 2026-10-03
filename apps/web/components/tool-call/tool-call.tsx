@@ -1,4 +1,5 @@
 "use client";
+import { BrowserRenderer } from "./renderers/browser-renderer";
 
 /**
  * Tool call component that renders tool invocations for the web app.
@@ -56,6 +57,10 @@ export function ToolCall({
   const approvalProps = { onApprove, onDeny };
 
   switch (part.type) {
+    case "tool-browser_session":
+    case "tool-browser_inspect":
+    case "tool-browser_action":
+      return <BrowserRenderer part={part} state={state} />;
     case "tool-multi_edit":
     case "tool-apply_patch":
     case "tool-undo_edit":
