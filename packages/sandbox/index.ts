@@ -7,6 +7,15 @@ export type {
   PatchHunk,
 } from "./workspace-edit/types";
 export type {
+  WorkspaceSearchContextLine,
+  WorkspaceSearchEntry,
+  WorkspaceSearchQuery,
+  WorkspaceSearchRequest,
+  WorkspaceSearchResult,
+  WorkspaceSearchSkipReason,
+  WorkspaceSearchSkipped,
+} from "./workspace-search/types";
+export type {
   ExecResult,
   Sandbox,
   SandboxHook,

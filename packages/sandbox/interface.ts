@@ -3,6 +3,10 @@ import type {
   WorkspaceEditRequest,
   WorkspaceEditResult,
 } from "./workspace-edit/types";
+import type {
+  WorkspaceSearchRequest,
+  WorkspaceSearchResult,
+} from "./workspace-search/types";
 
 /**
  * The type of sandbox environment.
@@ -134,6 +138,11 @@ export interface Sandbox {
   applyWorkspaceEdit?(
     request: WorkspaceEditRequest,
   ): Promise<WorkspaceEditResult>;
+  /** Sandbox-side content/file search with stored, resumable result pages. */
+  searchWorkspace?(
+    request: WorkspaceSearchRequest,
+    options?: { signal?: AbortSignal },
+  ): Promise<WorkspaceSearchResult>;
   stat(path: string): Promise<SandboxStats>;
   access(path: string): Promise<void>;
   mkdir(path: string, options?: { recursive?: boolean }): Promise<void>;

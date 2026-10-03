@@ -1,4 +1,5 @@
 import { createLocalWorkspaceEditor } from "../../sandbox/workspace-edit/test-harness";
+import { createLocalWorkspaceSearcher } from "../../sandbox/workspace-search/test-harness";
 import { createHash } from "node:crypto";
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
@@ -132,6 +133,7 @@ async function createFsSandbox() {
   const sandbox = {
     workingDirectory,
     applyWorkspaceEdit: createLocalWorkspaceEditor(workingDirectory),
+    searchWorkspace: createLocalWorkspaceSearcher(workingDirectory),
     stat: (filePath: string) => stat(filePath),
     readFile: (filePath: string, encoding: BufferEncoding) =>
       readFile(filePath, { encoding }),
@@ -354,95 +356,115 @@ describe("tools execute behavior", () => {
     });
   });
 
-  test("grepTool parses grep output and truncates long content", async () => {
-    let executedCommand = "";
-    const sandbox = {
-      workingDirectory: "/repo",
-      exec: async (command: string) => {
-        executedCommand = command;
-        return {
-          success: true,
-          exitCode: 0,
-          stdout:
-            "/repo/src/a.ts:12:match-a\n/repo/src/b.ts:7:" + "x".repeat(300),
-          stderr: "",
-        };
-      },
-    };
-
-    const result = await grepTool().execute?.(
-      {
-        pattern: "match",
-        path: "src",
-        glob: "*.ts",
-        caseSensitive: false,
-      },
-      executionOptions(createContext(sandbox)),
+  test("grepTool pages stored matches through cursors with compatible fields", async () => {
+    const { sandbox, workingDirectory } = await createFsSandbox();
+    await mkdir(path.join(workingDirectory, "src"));
+    await writeFile(
+      path.join(workingDirectory, "src", "a.ts"),
+      Array.from({ length: 150 }, (_, line) => `call(${line}) ok`).join("\n"),
     );
-
-    expect(executedCommand).toContain("--include='*.ts'");
-    expect(executedCommand).toContain(" -i ");
-    expect(result).toMatchObject({
+    await writeFile(path.join(workingDirectory, "src", "b.js"), "call(1)\n");
+    const context = createContext(sandbox);
+    const first = await grepTool().execute?.(
+      { pattern: "call(", mode: "literal", path: "src", glob: "*.ts" },
+      executionOptions(context),
+    );
+    // Capture before asserting: Bun's toMatchObject writes matchers into the received object.
+    const cursor = (first as { nextCursor: string }).nextCursor;
+    expect(first).toMatchObject({
       success: true,
-      pattern: "match",
-      matchCount: 2,
-      filesWithMatches: 2,
+      pattern: "call(",
+      mode: "literal",
+      path: "src",
+      matchCount: 150,
+      filesWithMatches: 1,
+      returned: 100,
+      complete: true,
+      nextCursor: expect.stringMatching(/^s1\./),
     });
-
-    const firstMatch =
-      result && typeof result === "object" && "matches" in result
-        ? (result.matches as Array<{ file: string; content: string }>)[0]
-        : undefined;
-    const secondMatch =
-      result && typeof result === "object" && "matches" in result
-        ? (result.matches as Array<{ file: string; content: string }>)[1]
-        : undefined;
-
-    expect(firstMatch?.file).toBe("src/a.ts");
-    expect(secondMatch?.content.length).toBe(200);
-  });
-
-  test("globTool parses find output into sorted file metadata", async () => {
-    let executedCommand = "";
-    const sandbox = {
-      workingDirectory: "/repo",
-      exec: async (command: string) => {
-        executedCommand = command;
-        return {
-          success: true,
-          exitCode: 0,
-          stdout:
-            "1700000000\t12\t/repo/src/a.ts\n1690000000\t20\t/repo/src/b.ts",
-          stderr: "",
-        };
-      },
-    };
-
-    const result = await globTool().execute?.(
-      { pattern: "src/**/*.ts", path: ".", limit: 2 },
-      executionOptions(createContext(sandbox)),
+    const matches = (first as { matches: unknown[] }).matches;
+    expect(matches[0]).toEqual({
+      file: "src/a.ts",
+      line: 1,
+      column: 1,
+      content: "call(0) ok",
+    });
+    const second = await grepTool().execute?.(
+      { cursor },
+      executionOptions(context),
     );
+    expect(second).toMatchObject({ returned: 50, matchCount: 150 });
+    expect(second).not.toHaveProperty("nextCursor");
+    expect(
+      (second as { matches: { line: number }[] }).matches.map((m) => m.line),
+    ).toEqual(Array.from({ length: 50 }, (_, index) => index + 101));
 
-    expect(executedCommand).toContain("head -n 2");
-    expect(executedCommand).toContain("-name '*.ts'");
-    expect(result).toEqual({
-      success: true,
-      pattern: "src/**/*.ts",
-      baseDir: "src",
-      count: 2,
-      files: [
-        {
-          path: "src/a.ts",
-          size: 12,
-          modifiedAt: "2023-11-14T22:13:20.000Z",
-        },
-        {
-          path: "src/b.ts",
-          size: 20,
-          modifiedAt: "2023-07-22T04:26:40.000Z",
-        },
+    expect(
+      await grepTool().execute?.(
+        { pattern: "call", output: "count", path: workingDirectory },
+        executionOptions(context),
+      ),
+    ).toMatchObject({
+      counts: [
+        { file: "src/a.ts", count: 150 },
+        { file: "src/b.js", count: 1 },
       ],
     });
+    expect(
+      await grepTool().execute?.(
+        { pattern: "x", path: "../outside" },
+        executionOptions(context),
+      ),
+    ).toEqual({
+      success: false,
+      error: "Path must stay within the workspace.",
+    });
+    expect(
+      await globTool().execute?.({ cursor }, executionOptions(context)),
+    ).toMatchObject({ success: false, error: expect.stringContaining("grep") });
+    expect(
+      await grepTool().execute?.(
+        { cursor: "bogus" },
+        executionOptions(context),
+      ),
+    ).toMatchObject({
+      success: false,
+      error: expect.stringContaining("cursor"),
+    });
+  });
+
+  test("globTool matches full relative paths and pages file metadata", async () => {
+    const { sandbox, workingDirectory } = await createFsSandbox();
+    await mkdir(path.join(workingDirectory, "src", "deep"), {
+      recursive: true,
+    });
+    await writeFile(path.join(workingDirectory, "top.ts"), "1");
+    await writeFile(path.join(workingDirectory, "src", "a.ts"), "12");
+    await writeFile(path.join(workingDirectory, "src", "deep", "b.ts"), "123");
+    const context = createContext(sandbox);
+    expect(
+      await globTool().execute?.(
+        { pattern: "*.ts" },
+        executionOptions(context),
+      ),
+    ).toMatchObject({ count: 1, totalFiles: 1, files: [{ path: "top.ts" }] });
+    const first = await globTool().execute?.(
+      { pattern: "src/**/*.ts", path: ".", sort: "path", limit: 1 },
+      executionOptions(context),
+    );
+    const cursor = (first as { nextCursor: string }).nextCursor;
+    expect(first).toMatchObject({
+      success: true,
+      pattern: "src/**/*.ts",
+      baseDir: ".",
+      count: 1,
+      totalFiles: 2,
+      files: [{ path: "src/a.ts", size: 2, modifiedAt: expect.any(String) }],
+      nextCursor: expect.any(String),
+    });
+    expect(
+      await globTool().execute?.({ cursor }, executionOptions(context)),
+    ).toMatchObject({ count: 1, files: [{ path: "src/deep/b.ts", size: 3 }] });
   });
 
   test("bashTool handles detached and non-detached execution", async () => {

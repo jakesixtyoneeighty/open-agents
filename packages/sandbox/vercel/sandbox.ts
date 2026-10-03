@@ -1,6 +1,8 @@
 import { Sandbox as VercelSandboxSDK } from "@vercel/sandbox";
 import { runRemoteWorkspaceEdit } from "../workspace-edit/remote";
 import type { WorkspaceEditRequest } from "../workspace-edit/types";
+import { runRemoteWorkspaceSearch } from "../workspace-search/remote";
+import type { WorkspaceSearchRequest } from "../workspace-search/types";
 import type { Dirent } from "fs";
 import type {
   ExecResult,
@@ -777,6 +779,18 @@ ${hostLine}${portLines}${runtimeEnvLine}`;
 
   applyWorkspaceEdit(request: WorkspaceEditRequest) {
     return runRemoteWorkspaceEdit(this.session, this.workingDirectory, request);
+  }
+
+  searchWorkspace(
+    request: WorkspaceSearchRequest,
+    options?: { signal?: AbortSignal },
+  ) {
+    return runRemoteWorkspaceSearch(
+      this.session,
+      this.workingDirectory,
+      request,
+      options?.signal,
+    );
   }
 
   async readFileBuffer(path: string): Promise<Buffer> {

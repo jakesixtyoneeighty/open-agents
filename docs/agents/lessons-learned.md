@@ -143,3 +143,11 @@ Hard-won knowledge from building this codebase. When you make a mistake or disco
 - For tests on macOS, canonicalize temporary paths before fault-injection comparisons: `/var/...` and `/private/var/...` can refer to the same file.
 - Every page rendering `MultiFileDiff` needs `DiffsProvider`, including shared chats and browser fixtures. Without it, the custom element can render an empty diff without a console error.
 - Subagent `response.messages` contains projected tool outputs. Capture full edit results from `fullStream` and restore them only for persisted task history, or compact model output will also erase transcript diffs.
+
+## Workspace search
+
+- Search continuation must read stored results, not rerun the search with a skip count: files change between pages, so offsets into a fresh scan can drop or repeat matches. Snapshot candidates, persist entries, and resume an interrupted scan from the next unscanned file.
+- Moving `grep` from POSIX ERE to JavaScript regex silently changes `[[:space:]]` into a character class of literal characters. Translate POSIX bracket classes before compiling, and keep a compatibility test.
+- A per-line deadline cannot stop catastrophic backtracking inside one `RegExp.exec`. Run each file's synchronous scan through `vm.Script#runInContext` with a `timeout`, which interrupts the regex.
+- Pass user paths to `git ls-files` with `--literal-pathspecs`; Next.js route folders such as `[id]` are otherwise pathspec globs.
+- Bun's `toMatchObject` can replace matched properties of the received object with the asymmetric matcher (for example `expect.any(String)`). Read values you reuse, such as cursors, before asserting.

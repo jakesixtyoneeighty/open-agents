@@ -137,7 +137,8 @@ function getToolSummary(name: string, input: unknown): string {
     }
     case "grep":
     case "glob":
-      return inp.pattern ? `'${inp.pattern}'` : "";
+      if (inp.pattern) return `'${inp.pattern}'`;
+      return inp.cursor ? "next page" : "";
     case "bash":
       return inp.command ? String(inp.command) : "";
     case "web_search":

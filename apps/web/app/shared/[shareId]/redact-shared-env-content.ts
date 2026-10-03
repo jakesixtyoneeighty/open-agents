@@ -1,5 +1,6 @@
 import { posix } from "node:path";
 import type { WebAgentUIMessage, WebAgentUIMessagePart } from "@/app/types";
+import { sanitizeGrepOutput } from "./redact-search-results";
 
 const REDACTED_READ_LINE = "[redacted from shared page]";
 const REDACTED_WRITE_LINE = "[content redacted from shared page]";
@@ -13,7 +14,7 @@ type SensitiveToolName =
   | "multi_edit"
   | "apply_patch"
   | "undo_edit";
-type NestedSensitiveToolName = SensitiveToolName | "task";
+type NestedSensitiveToolName = SensitiveToolName | "task" | "grep";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -104,6 +105,8 @@ function sanitizeToolOutput(
       return sanitizeReadOutput(output);
     case "task":
       return sanitizeTaskOutput(output);
+    case "grep":
+      return sanitizeGrepOutput(output);
     default:
       return output;
   }
@@ -227,8 +230,8 @@ function sanitizeSubagentFinalMessages(messages: unknown): unknown {
         continue;
       }
 
-      if (part.toolName === "task") {
-        nestedSensitiveToolCalls.set(part.toolCallId, "task");
+      if (part.toolName === "task" || part.toolName === "grep") {
+        nestedSensitiveToolCalls.set(part.toolCallId, part.toolName);
       }
     }
   }
@@ -323,6 +326,15 @@ function sanitizeMessagePart(
       return {
         ...part,
         input: sanitizeToolCallInput("edit", part.input) as typeof part.input,
+      } as WebAgentUIMessagePart;
+    case "tool-grep":
+      if (part.state !== "output-available") {
+        return part;
+      }
+
+      return {
+        ...part,
+        output: sanitizeGrepOutput(part.output) as typeof part.output,
       } as WebAgentUIMessagePart;
     case "tool-task":
       if (part.state !== "output-available") {

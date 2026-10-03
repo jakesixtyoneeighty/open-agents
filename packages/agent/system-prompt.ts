@@ -83,8 +83,8 @@ Serialize when there are dependencies:
 - \`read\` - Read file contents. ALWAYS read before editing.
 - \`write\` - Create or overwrite files. Prefer edit for existing files.
 - \`edit\` - Make precise string replacements in files.
-- \`grep\` - Search file contents with regex. Use instead of bash grep/rg.
-- \`glob\` - Find files by pattern.
+- \`grep\` - Search file contents (regex or literal; content, files or count output). Use instead of bash grep/rg. Continue with \`cursor\` when \`nextCursor\` is returned.
+- \`glob\` - Find files by path pattern (\`**/*.ts\` for any depth). Results page the same way.
 
 ## Shell
 - \`bash\` - Run shell commands. Use for:

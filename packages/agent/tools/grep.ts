@@ -1,186 +1,174 @@
 import { tool } from "ai";
 import { z } from "zod";
-import * as path from "path";
-import { getSandbox, shellEscape, toDisplayPath } from "./utils";
+import {
+  runWorkspaceSearch,
+  searchStatus,
+  toWorkspaceSearchPath,
+} from "./workspace-search";
 
-interface GrepMatch {
-  file: string;
-  line: number;
-  content: string;
-}
+const contextLines = z.number().int().min(0).max(20).optional();
 
 const grepInputSchema = z.object({
-  pattern: z.string().describe("Regex pattern to search for"),
+  pattern: z
+    .string()
+    .optional()
+    .describe(
+      "Regex (default) or literal text. Required unless cursor is set.",
+    ),
   path: z
     .string()
-    .describe("Workspace-relative file or directory to search in (e.g., src)"),
+    .optional()
+    .describe(
+      "Workspace-relative file or directory to search (e.g., src). Default: workspace root",
+    ),
+  mode: z
+    .enum(["regex", "literal"])
+    .optional()
+    .describe(
+      "regex or literal (exact text, no escaping needed). Default: regex",
+    ),
+  output: z
+    .enum(["content", "files", "count"])
+    .optional()
+    .describe(
+      "content: matching lines; files: paths containing matches; count: matching lines per file. Default: content",
+    ),
   glob: z
     .string()
     .optional()
-    .describe("Glob pattern to filter files (e.g., '*.ts')"),
+    .describe(
+      "File filter. Without '/', matches file names at any depth ('*.ts', '*.{ts,tsx}'); with '/', matches paths relative to path ('src/**/*.test.ts')",
+    ),
   caseSensitive: z
     .boolean()
     .optional()
     .describe("Case-sensitive search. Default: true"),
+  context: contextLines.describe(
+    "Lines of context before and after each match (0-20, content output)",
+  ),
+  before: contextLines.describe("Lines before each match; overrides context"),
+  after: contextLines.describe("Lines after each match; overrides context"),
+  includeHidden: z
+    .boolean()
+    .optional()
+    .describe("Search dot-files and dot-directories. Default: false"),
+  includeIgnored: z
+    .boolean()
+    .optional()
+    .describe("Search gitignored files and node_modules. Default: false"),
+  limit: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe(
+      "Maximum results per page (1-500). Default: 100; pages also stop near 16000 characters",
+    ),
+  cursor: z
+    .string()
+    .optional()
+    .describe(
+      "nextCursor from an earlier grep result. Returns the next page of that search without rerunning it; other fields except limit are ignored",
+    ),
 });
 
 export const grepTool = () =>
   tool({
-    description: `Search for patterns in files using POSIX Extended Regular Expressions (ERE).
+    description: `Search file contents in the workspace.
 
 WHEN TO USE:
 - Finding where a function, variable, or string literal is used
 - Locating configuration keys, routes, or error messages across files
-- Narrowing down which files to read or edit
+- Counting usages or listing which files contain a pattern
 
 WHEN NOT TO USE:
-- Simple filename-only searches (use globTool instead)
-- Complex, multi-round codebase exploration (use taskTool with detailed instructions)
-- Directory listings, builds, or other shell tasks (use bashTool instead)
+- Simple filename-only searches (use glob instead)
+- Complex, multi-round codebase exploration (use task with detailed instructions)
 
 USAGE:
-- Uses POSIX ERE syntax (e.g., "log.*Error", "function[[:space:]]+[a-zA-Z_]+")
-- Perl-style shorthands like \\s, \\w, \\d are NOT supported; use POSIX classes instead: [[:space:]], [[:alnum:]_], [[:digit:]]
-- Search a specific file OR an entire directory via the path parameter
-- Use workspace-relative paths for path (e.g., "src")
-- Optionally filter files with glob (e.g., "*.ts", "*.test.js")
-- Matches are SINGLE-LINE: patterns do not span across newline characters
-- Results are limited to 100 matches total, with up to 10 matches per file; each match line is truncated to 200 characters
+- mode "regex" (default) uses JavaScript regular expressions: \\s, \\w, \\d, \\b, lookarounds; POSIX classes like [[:space:]] also work
+- mode "literal" matches the exact text, so "foo(bar.baz)" needs no escaping
+- Matches are single-line. Each result has file, line, a 1-based column and the line content
+- output "files" lists matching paths; output "count" gives matching lines per file
+- Use context/before/after for surrounding lines
+- Long lines are windowed around the match (truncated: true, contentOffset); read with columnOffset for the rest
+- Results are paged. When nextCursor is present, call grep again with only cursor to get the next page; it reads stored results and never repeats earlier ones
+- matchCount and filesWithMatches are totals for the whole search; complete: false means the scan paused and totals are lower bounds
+
+POLICY:
+- Searches only inside the workspace and never follows symlinks
+- Skips .git, hidden paths, node_modules and gitignored files unless includeHidden/includeIgnored is set
+- Never returns dotenv file contents; binary, oversized (>4 MiB) and skipped files are reported in skipped
 
 IMPORTANT:
-- ALWAYS use this tool for code/content searches instead of running grep/rg via bashTool
-- Use caseSensitive: false for case-insensitive searches
-- Hidden files and node_modules are skipped when searching directories
+- ALWAYS use this tool for code/content searches instead of running grep/rg via bash
 
 EXAMPLES:
-- Find all TODO comments in TypeScript files: pattern: "TODO", path: "src", glob: "*.ts"
-- Find all references to a function (case-insensitive): pattern: "handleRequest", path: "src", caseSensitive: false`,
+- TODOs in TypeScript: pattern: "TODO", path: "src", glob: "*.ts"
+- Exact call text: pattern: "useState<Map<", mode: "literal"
+- Files that import a module: pattern: "from \\"zod\\"", output: "files"
+- Next page: cursor: "<nextCursor>"`,
     inputSchema: grepInputSchema,
-    execute: async (
-      { pattern, path: searchPath, glob, caseSensitive = true },
-      { experimental_context, abortSignal },
-    ) => {
-      const sandbox = await getSandbox(experimental_context, "grep");
-      const workingDirectory = sandbox.workingDirectory;
-
-      try {
-        const absolutePath = path.isAbsolute(searchPath)
-          ? searchPath
-          : path.resolve(workingDirectory, searchPath);
-
-        const maxTotal = 100;
-        const maxPerFile = 10;
-
-        const args: string[] = ["grep", "-rn"];
-        if (!caseSensitive) args.push("-i");
-
-        args.push(
-          `--exclude-dir=${shellEscape(".*")}`,
-          `--exclude-dir=${shellEscape("node_modules")}`,
-        );
-
-        if (glob) {
-          args.push(`--include=${shellEscape(glob)}`);
-        }
-
-        args.push(
-          `-m`,
-          String(maxPerFile),
-          "-E",
-          shellEscape(pattern),
-          shellEscape(absolutePath),
-        );
-
-        const command = args.join(" ");
-
-        const result = await sandbox.exec(
-          command,
-          sandbox.workingDirectory,
-          30_000,
-          { signal: abortSignal },
-        );
-
-        // grep exits with 1 when no matches found - that's not an error
-        if (!result.success && result.exitCode !== 1) {
-          const errorOutput = (result.stderr || result.stdout).slice(0, 500);
-          return {
-            success: false,
-            error: `Grep failed (exit ${result.exitCode}): ${errorOutput}`,
-          };
-        }
-
-        const matches: GrepMatch[] = [];
-        const filesSet = new Set<string>();
-        const fileMatchCounts = new Map<string, number>();
-
-        const lines = result.stdout.split("\n").filter(Boolean);
-        for (const line of lines) {
-          if (matches.length >= maxTotal) break;
-
-          // grep -rn output format: file:line:content
-          // Use last-known-good parsing: find first colon after the path
-          // For absolute paths like /vercel/sandbox/file.ts:10:content,
-          // we need to handle the colon after the path correctly
-          const nulIndex = line.indexOf("\0");
-          let file: string;
-          let rest: string;
-          if (nulIndex !== -1) {
-            // NUL-separated format (if --null was used)
-            file = line.slice(0, nulIndex);
-            rest = line.slice(nulIndex + 1);
-          } else {
-            // Colon-separated: find the line number portion (file:LINE_NUM:content)
-            // Match the pattern ":digits:" to separate file path from line number
-            const match = line.match(/:(\d+):/);
-            if (!match || match.index === undefined) continue;
-            file = line.slice(0, match.index);
-            rest = line.slice(match.index + 1);
+    execute: async (input, { experimental_context, abortSignal }) => {
+      const result = await runWorkspaceSearch({
+        context: experimental_context,
+        toolName: "grep",
+        kind: "content",
+        limit: input.limit,
+        cursor: input.cursor,
+        abortSignal,
+        buildQuery: (workingDirectory) => {
+          if (!input.pattern) {
+            return { error: "pattern is required unless cursor is set." };
           }
-          const colonIndex = rest.indexOf(":");
-          if (colonIndex === -1) continue;
-
-          const lineNum = parseInt(rest.slice(0, colonIndex), 10);
-          const content = rest.slice(colonIndex + 1);
-
-          if (isNaN(lineNum)) continue;
-
-          const displayFile = toDisplayPath(file, workingDirectory);
-          filesSet.add(displayFile);
-          const currentFileCount = fileMatchCounts.get(displayFile) ?? 0;
-          if (currentFileCount >= maxPerFile) continue;
-
-          fileMatchCounts.set(displayFile, currentFileCount + 1);
-          matches.push({
-            file: displayFile,
-            line: lineNum,
-            content: content.slice(0, 200),
-          });
-        }
-
-        const response: Record<string, unknown> = {
-          success: true,
-          pattern,
-          matchCount: matches.length,
-          filesWithMatches: filesSet.size,
-          matches,
-        };
-
-        // Include debug info when no results found to aid diagnosis
-        if (matches.length === 0) {
-          response._debug = {
-            command,
-            exitCode: result.exitCode,
-            stdoutPreview: result.stdout.slice(0, 500),
+          const searchPath = toWorkspaceSearchPath(
+            input.path,
+            workingDirectory,
+          );
+          if (searchPath === null) {
+            return { error: "Path must stay within the workspace." };
+          }
+          return {
+            kind: "content",
+            path: searchPath,
+            pattern: input.pattern,
+            mode: input.mode ?? "regex",
+            caseSensitive: input.caseSensitive ?? true,
+            ...(input.glob ? { glob: input.glob } : {}),
+            output: input.output ?? "content",
+            before: input.before ?? input.context ?? 0,
+            after: input.after ?? input.context ?? 0,
+            includeHidden: input.includeHidden ?? false,
+            includeIgnored: input.includeIgnored ?? false,
           };
-        }
-
-        return response;
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        return {
-          success: false,
-          error: `Grep failed: ${message}`,
-        };
+        },
+      });
+      if (!result.success) return result;
+      if (result.query.kind !== "content") {
+        return { success: false as const, error: "Unexpected search result." };
       }
+      const { query } = result;
+      const entries =
+        query.output === "content"
+          ? { matches: result.entries }
+          : query.output === "count"
+            ? { counts: result.entries }
+            : {
+                files: result.entries.flatMap((entry) =>
+                  "file" in entry ? [entry.file] : [],
+                ),
+              };
+      return {
+        success: true as const,
+        pattern: query.pattern,
+        mode: query.mode,
+        output: query.output,
+        path: query.path || ".",
+        ...(query.glob ? { glob: query.glob } : {}),
+        matchCount: result.totalMatches,
+        filesWithMatches: result.totalFiles,
+        ...entries,
+        ...searchStatus(result),
+      };
     },
   });
