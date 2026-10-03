@@ -64,6 +64,7 @@ const TOOL_LABELS: Record<string, string> = {
   multi_edit: "Edit files",
   apply_patch: "Apply patch",
   undo_edit: "Undo",
+  code_rename: "Rename symbol",
   revert: "Revert",
   restore_checkpoint: "Restore checkpoint",
 };

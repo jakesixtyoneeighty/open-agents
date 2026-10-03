@@ -181,3 +181,10 @@ Hard-won knowledge from building this codebase. When you make a mistake or disco
 - Keep the history index as a cache reconciled against the journal directory on every run. Journals from phase 1, from older deployed workers, or from commits whose index save failed must still appear, and an index save must never roll back a committed change.
 - Transcript tool results are not trustworthy restore input: assistant snapshots are upserted from the client. Restore only from sandbox journals.
 - SWR reports `isLoading` while it revalidates even when fallback or cached data exists; render from data when present. A cached history list can predate a newer edit card, so recheck once before telling the user a change is gone.
+
+## Code intelligence and connectors
+
+- TypeScript's config parser expects `useCaseSensitiveFileNames` as a boolean, but its language-service host expects a function. Override it when adapting the config host; exercise the shipped worker with real TypeScript, imports and rename spans.
+- Read-only semantic inspection must disable Git hooks/fsmonitor and refuse applicable clean/process filters before temporary-index hashing; `git add` can otherwise execute configured code. Preserve NUL-delimited paths exactly when checking attributes.
+- A git tree revision excludes ignored inputs. For semantic rename, also hash the source/config files actually read and check those guards under the edit lock, including ignored files, before applying the language service's edit plan.
+- MCP configuration is not evidence of connectivity. Keep exact task grants and credential references server-side, recheck ownership at execution, and distinguish configured, connected, missing credentials and unknown external effects. Third-party MCP SDK deep exports require `.js`; workspace imports still omit extensions.

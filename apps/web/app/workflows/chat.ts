@@ -97,6 +97,7 @@ const DIFF_REFRESHING_TOOL_TYPES = new Set([
   "tool-multi_edit",
   "tool-apply_patch",
   "tool-undo_edit",
+  "tool-code_rename",
   "tool-bash",
   "tool-run_checks",
   "tool-process",
@@ -729,6 +730,11 @@ export async function runAgentWorkflow(options: Options) {
     const agentOptions: OpenAgentCallOptions = {
       ...modelRuntime.agentOptions,
       ...options.agentOptions,
+      connectorScope: {
+        userId: options.userId,
+        sessionId: options.sessionId,
+        chatId: options.chatId,
+      },
       planningMode: planning.planningMode,
       qualityReviewMode: qualityReview.reviewing,
       customInstructions: [

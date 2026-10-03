@@ -2516,6 +2516,7 @@ export function SessionChatContent({
       "tool-multi_edit",
       "tool-apply_patch",
       "tool-undo_edit",
+      "tool-code_rename",
     ];
 
     for (const message of messages) {

@@ -1,4 +1,6 @@
 "use client";
+import { McpConnectorRenderer } from "./renderers/mcp-connector-renderer";
+import { CodeInspectRenderer } from "./renderers/code-inspect-renderer";
 import { ProcessRenderer } from "./renderers/process-renderer";
 import { CommandOutputRenderer } from "./renderers/command-output-renderer";
 import { BrowserRenderer } from "./renderers/browser-renderer";
@@ -59,12 +61,19 @@ export function ToolCall({
   const approvalProps = { onApprove, onDeny };
 
   switch (part.type) {
+    case "tool-mcp_connector":
+      return (
+        <McpConnectorRenderer part={part} state={state} {...approvalProps} />
+      );
+    case "tool-code_inspect":
+      return <CodeInspectRenderer part={part} state={state} />;
     case "tool-browser_session":
     case "tool-browser_inspect":
     case "tool-browser_action":
       return <BrowserRenderer part={part} state={state} />;
     case "tool-multi_edit":
     case "tool-apply_patch":
+    case "tool-code_rename":
     case "tool-undo_edit":
       return (
         <WorkspaceEditRenderer part={part} state={state} {...approvalProps} />

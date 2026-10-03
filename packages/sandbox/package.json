@@ -12,7 +12,8 @@
     "./vercel/index.js": "./vercel/index.ts",
     "./vercel/snapshot-refresh.js": "./vercel/snapshot-refresh.ts",
     "./vercel/sandbox.js": "./vercel/sandbox.ts",
-    "./vercel/config.js": "./vercel/config.ts"
+    "./vercel/config.js": "./vercel/config.ts",
+    "./workspace-revision-source": "./workspace-revision-source.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

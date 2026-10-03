@@ -8,7 +8,11 @@ import { CheckpointCardActions } from "@/components/checkpoints/checkpoint-card-
 import { FileNamePill } from "../file-name-pill";
 import { ToolLayout } from "../tool-layout";
 
-type EditToolType = "tool-multi_edit" | "tool-apply_patch" | "tool-undo_edit";
+type EditToolType =
+  | "tool-code_rename"
+  | "tool-multi_edit"
+  | "tool-apply_patch"
+  | "tool-undo_edit";
 
 export function WorkspaceEditRenderer({
   part,
@@ -21,11 +25,13 @@ export function WorkspaceEditRenderer({
   const failure = result?.success === false ? result : undefined;
   const mergedState = failure ? { ...state, error: failure.error } : state;
   const name =
-    part.type === "tool-undo_edit"
-      ? "Undo changes"
-      : part.type === "tool-apply_patch"
-        ? "Apply patch"
-        : "Edit files";
+    part.type === "tool-code_rename"
+      ? "Rename symbol"
+      : part.type === "tool-undo_edit"
+        ? "Undo changes"
+        : part.type === "tool-apply_patch"
+          ? "Apply patch"
+          : "Edit files";
   return (
     <ToolLayout
       name={name}

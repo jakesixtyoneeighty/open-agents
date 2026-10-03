@@ -48,6 +48,10 @@ export interface WorkspaceRevertTarget {
 export type WorkspaceEditRequest = {
   id: string;
   dryRun?: boolean;
+  /** Semantic edits must still describe this entire working tree under the lock. */
+  expectedWorkspaceRevision?: string;
+  /** Additional semantic inputs, including ignored source/config files. */
+  readRevisions?: Record<string, string>;
   /** Only legacy single-file tools and user restores may set this. */
   allowSensitive?: boolean;
   origin?: WorkspaceEditOrigin;

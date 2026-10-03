@@ -12,6 +12,7 @@ test("the actual agent registries expose coordinated editing only to build roles
       "multi_edit",
       "apply_patch",
       "undo_edit",
+      "code_rename",
       "run_checks",
       "process",
     ])
@@ -29,6 +30,7 @@ test("the actual agent registries expose coordinated editing only to build roles
       "multi_edit",
       "apply_patch",
       "undo_edit",
+      "code_rename",
       "run_checks",
       "process",
     ])
@@ -62,4 +64,21 @@ test("browser interactions are available only to build roles; review gets inspec
   expect(getPlanningTools(openAgent.tools)).not.toHaveProperty(
     "browser_inspect",
   );
+});
+
+test("language inspection is available to every role while connectors stay host-only", () => {
+  for (const tools of [
+    openAgent.tools,
+    executorSubagent.tools,
+    designSubagent.tools,
+    explorerSubagent.tools,
+    getPlanningTools(openAgent.tools),
+    getQualityReviewTools(openAgent.tools),
+  ]) {
+    expect(tools).toHaveProperty("code_inspect");
+    expect(tools).not.toHaveProperty("mcp_connector");
+  }
+  const host = { ...openAgent.tools, mcp_connector: openAgent.tools.read };
+  expect(getPlanningTools(host)).not.toHaveProperty("mcp_connector");
+  expect(getQualityReviewTools(host)).not.toHaveProperty("mcp_connector");
 });

@@ -9,7 +9,11 @@ export function createWorkspaceEditHistory() {
   const results = new Map<string, WorkspaceEditOutput>();
   return {
     capture(part: { toolName: string; toolCallId: string; output: unknown }) {
-      if (!["multi_edit", "apply_patch", "undo_edit"].includes(part.toolName))
+      if (
+        !["multi_edit", "apply_patch", "undo_edit", "code_rename"].includes(
+          part.toolName,
+        )
+      )
         return;
       const parsed = workspaceEditOutputSchema.safeParse(part.output);
       if (parsed.success) results.set(part.toolCallId, parsed.data);

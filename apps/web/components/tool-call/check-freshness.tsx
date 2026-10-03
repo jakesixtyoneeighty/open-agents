@@ -24,6 +24,7 @@ function mutationOf(part: WebAgentUIMessage["parts"][number]) {
       return isRecord(output) && output.success === false ? null : "stale";
     case "tool-multi_edit":
     case "tool-apply_patch":
+    case "tool-code_rename":
     case "tool-undo_edit":
       return isRecord(output) &&
         output.success === true &&
@@ -52,7 +53,7 @@ function mutationOf(part: WebAgentUIMessage["parts"][number]) {
   }
 }
 
-/** Freshness of each completed run_checks call, judged by later tool calls in order. */
+/** Freshness of check and language observations, judged by later tool calls. */
 export function computeCheckFreshness(messages: WebAgentUIMessage[]) {
   const parts = messages.flatMap((message) =>
     message.role === "assistant" ? message.parts : [],
@@ -64,7 +65,7 @@ export function computeCheckFreshness(messages: WebAgentUIMessage[]) {
     if (!part) continue;
     if (
       isToolUIPart(part) &&
-      part.type === "tool-run_checks" &&
+      (part.type === "tool-run_checks" || part.type === "tool-code_inspect") &&
       part.state === "output-available"
     ) {
       freshness.set(part.toolCallId, later);

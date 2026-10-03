@@ -1,3 +1,4 @@
+import { codeInspectTool, codeRenameTool } from "./tools/code-intelligence";
 import { processTool } from "./tools/process";
 import {
   browserSessionTool,
@@ -79,6 +80,9 @@ const callOptionsSchema = z.object({
   qualityReviewMode: z.boolean().optional(),
   screenshotStore: z.custom<ScreenshotStore>().optional(),
   browserScope: z.string().optional(),
+  connectorScope: z
+    .object({ userId: z.string(), sessionId: z.string(), chatId: z.string() })
+    .optional(),
 });
 
 export type OpenAgentCallOptions = z.infer<typeof callOptionsSchema>;
@@ -109,6 +113,8 @@ const baseTools = {
   multi_edit: multiEditTool,
   apply_patch: applyPatchTool,
   undo_edit: undoEditTool,
+  code_inspect: codeInspectTool,
+  code_rename: codeRenameTool,
   grep: grepTool(),
   glob: globTool(),
   bash: bashTool(),
@@ -209,6 +215,10 @@ export function createOpenAgent<
         instructions,
         experimental_context: {
           sandbox,
+          connectorScope:
+            options.planningMode || options.qualityReviewMode
+              ? undefined
+              : options.connectorScope,
           browserScope: options.browserScope
             ? `${options.browserScope}:${options.qualityReviewMode ? "review" : "build"}`
             : undefined,

@@ -87,6 +87,8 @@ Serialize when there are dependencies:
 - \`glob\` - Find files by path pattern (\`**/*.ts\` for any depth). Results page the same way.
 
 ## Shell
+- \`code_inspect\` finds TS/JS symbols, definitions and references tied to a working-tree revision. \`code_rename\` previews and applies a semantic rename within a configured project; search for external consumers first, then run checks. Unsupported languages use read/grep.
+- \`mcp_connector\`, when available, lists only task-scoped server-configured integrations. Check availability and discover allowed tools before calling; calls require approval. Never put credentials in arguments.
 - \`run_checks\` - Run configured typecheck/lint/format/test (and named) checks with structured, revision-bound results. Prefer it over bash for verification.
 - \`bash\` - Run shell commands. Use for:
   - Project commands not covered by \`run_checks\`

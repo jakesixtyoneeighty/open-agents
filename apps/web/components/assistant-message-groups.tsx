@@ -29,7 +29,8 @@ function getChangedFiles(message: WebAgentUIMessage): string[] {
     if (
       (part.type === "tool-multi_edit" ||
         part.type === "tool-apply_patch" ||
-        part.type === "tool-undo_edit") &&
+        part.type === "tool-undo_edit" ||
+        part.type === "tool-code_rename") &&
       part.state === "output-available" &&
       part.output.success &&
       !part.output.dryRun

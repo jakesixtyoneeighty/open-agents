@@ -1,3 +1,4 @@
+import { WORKSPACE_REVISION_SOURCE } from "../workspace-revision-source";
 import { HISTORY_SOURCE } from "./history-source";
 import { LINE_DIFF_SOURCE } from "./line-diff-source";
 
@@ -134,7 +135,9 @@ function cleanOrigin(origin) {
 }
 `;
 
-const MAIN_SOURCE = String.raw`
+const MAIN_SOURCE =
+  WORKSPACE_REVISION_SOURCE +
+  String.raw`
 async function run(request) {
   root = await fs.realpath(rootInput);
   await fs.mkdir(store, { recursive: true, mode: 448 });
@@ -162,6 +165,16 @@ async function run(request) {
     if (prior.status === "committed") return { ...prior.result, replayed: true };
     if (prior.status === "rolled_back") fail("This operation was rolled back. Read current files and submit a new operation.");
   } catch (error) { if (error.code !== "ENOENT") throw error; }
+
+  if (request.expectedWorkspaceRevision && workspaceRevision(root) !== request.expectedWorkspaceRevision) fail("Workspace changed since semantic analysis. Inspect again before renaming.");
+
+  if (request.readRevisions) {
+    for (const [name, revision] of Object.entries(request.readRevisions)) {
+      if (sensitive(name)) fail("Sensitive semantic input is unsupported.");
+      const current = await read(name);
+      if (current.text === null || hash(current.text) !== revision) fail("Language input changed since semantic analysis: " + name);
+    }
+  }
 
   let files = [];
   let replacements = 0;

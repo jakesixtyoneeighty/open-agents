@@ -1,3 +1,4 @@
+import { codeInspectTool, codeRenameTool } from "../tools/code-intelligence";
 import { processTool } from "../tools/process";
 import {
   browserSessionTool,
@@ -100,6 +101,8 @@ export const executorSubagent = new ToolLoopAgent({
     multi_edit: multiEditTool,
     apply_patch: applyPatchTool,
     undo_edit: undoEditTool,
+    code_inspect: codeInspectTool,
+    code_rename: codeRenameTool,
     grep: grepTool(),
     glob: globTool(),
     bash: bashTool(),

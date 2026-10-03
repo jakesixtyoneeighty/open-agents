@@ -1,3 +1,4 @@
+import { codeInspectTool } from "../tools/code-intelligence";
 import type { LanguageModel } from "ai";
 import { stepCountIs, ToolLoopAgent } from "ai";
 import { gateway, type ModelConfig } from "../models";
@@ -93,6 +94,7 @@ export const explorerSubagent = new ToolLoopAgent({
   }),
   instructions: EXPLORER_SYSTEM_PROMPT,
   tools: {
+    code_inspect: codeInspectTool,
     skill: skillTool,
     read: readFileTool(),
     grep: grepTool(),

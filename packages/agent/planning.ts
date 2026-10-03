@@ -3,6 +3,7 @@ import type { ToolSet } from "ai";
 // Fail closed: new host tools are not automatically available while planning.
 const PLANNING_TOOLS = new Set([
   "read",
+  "code_inspect",
   "glob",
   "grep",
   "todo_write",

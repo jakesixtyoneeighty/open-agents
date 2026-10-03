@@ -1,4 +1,5 @@
 "use client";
+import { CodeInspectRenderer } from "./code-inspect-renderer";
 import { ProcessRenderer } from "./process-renderer";
 import { CommandOutputRenderer } from "./command-output-renderer";
 
@@ -83,6 +84,16 @@ function getToolMeta(toolName: string): ToolMeta {
     case "edit":
       return {
         displayName: "Update",
+        icon: <Pencil className={TOOL_ICON_CLASS} />,
+      };
+    case "code_inspect":
+      return {
+        displayName: "Code intelligence",
+        icon: <Search className={TOOL_ICON_CLASS} />,
+      };
+    case "code_rename":
+      return {
+        displayName: "Rename symbol",
         icon: <Pencil className={TOOL_ICON_CLASS} />,
       };
     case "multi_edit":
@@ -346,6 +357,8 @@ function SubagentToolCall({ part }: { part: WebAgentUIToolPart }) {
   const cwd = DEFAULT_WORKING_DIRECTORY;
 
   switch (part.type) {
+    case "tool-code_inspect":
+      return <CodeInspectRenderer part={part} state={state} />;
     case "tool-process":
       return <ProcessRenderer part={part} state={state} />;
     case "tool-command_output":
@@ -360,6 +373,7 @@ function SubagentToolCall({ part }: { part: WebAgentUIToolPart }) {
       return <EditRenderer part={part} state={state} cwd={cwd} />;
     case "tool-multi_edit":
     case "tool-apply_patch":
+    case "tool-code_rename":
     case "tool-undo_edit":
       return <WorkspaceEditRenderer part={part} state={state} />;
     case "tool-glob":
