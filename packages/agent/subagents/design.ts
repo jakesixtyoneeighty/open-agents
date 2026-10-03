@@ -93,7 +93,7 @@ const callOptionsSchema = z.object({
 export type DesignCallOptions = z.infer<typeof callOptionsSchema>;
 
 export const DESIGN_MODEL: ModelConfig = {
-  id: "stealth/pixel-canary",
+  id: "anthropic/opus-5.5",
   reasoningEffort: "high",
 };
 

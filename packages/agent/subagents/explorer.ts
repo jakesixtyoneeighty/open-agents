@@ -80,7 +80,7 @@ const callOptionsSchema = z.object({
 export type ExplorerCallOptions = z.infer<typeof callOptionsSchema>;
 
 export const EXPLORER_MODEL: ModelConfig = {
-  id: "stealth/pixel-canary",
+  id: "google/gemini-3.8-flash",
   reasoningEffort: "medium",
 };
 

@@ -12,7 +12,9 @@ import type { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 
 // Claude 4.6+ (including all 5.x models) use adaptive thinking.
 function supportsAdaptiveAnthropicThinking(modelId: string): boolean {
-  const match = /claude-[a-z]+-(\d+)(?:[.-](\d+))?/.exec(modelId);
+  const match = /^anthropic\/(?:claude-)?[a-z]+-(\d+)(?:[.-](\d+))?/.exec(
+    modelId,
+  );
   if (!match) {
     return false;
   }

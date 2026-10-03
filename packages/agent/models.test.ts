@@ -46,6 +46,31 @@ describe("shouldApplyOpenAIReasoningDefaults", () => {
 });
 
 describe("getProviderOptionsForModel", () => {
+  test("maps role reasoning levels to the selected providers", () => {
+    for (const modelId of ["openai/gpt-6-astra", "openai/gpt-6.1-sol"]) {
+      expect(
+        getProviderOptionsForModel(modelId, undefined, "high").openai,
+      ).toMatchObject({
+        reasoningEffort: "high",
+        store: false,
+        include: ["reasoning.encrypted_content"],
+      });
+    }
+    expect(
+      getProviderOptionsForModel("google/gemini-3.8-flash", undefined, "medium")
+        .google,
+    ).toEqual({
+      thinkingConfig: { thinkingLevel: "medium" },
+    });
+    expect(
+      getProviderOptionsForModel("anthropic/opus-5.5", undefined, "high")
+        .anthropic,
+    ).toEqual({
+      effort: "high",
+      thinking: { type: "adaptive" },
+    });
+  });
+
   test("caching applies to all Gateway model families and respects explicit opt-out", () => {
     for (const modelId of [
       "anthropic/claude-sonnet-4.6",

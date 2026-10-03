@@ -64,7 +64,7 @@ const callOptionsSchema = z.object({
 export type ExecutorCallOptions = z.infer<typeof callOptionsSchema>;
 
 export const EXECUTOR_MODEL: ModelConfig = {
-  id: "stealth/pixel-canary",
+  id: "openai/gpt-6.1-sol",
   reasoningEffort: "high",
 };
 

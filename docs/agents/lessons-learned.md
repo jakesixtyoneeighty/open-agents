@@ -4,6 +4,7 @@ Hard-won knowledge from building this codebase. When you make a mistake or disco
 
 ## General / Tooling
 
+- Agent role defaults live in `packages/agent/open-agent.ts` and `packages/agent/subagents/`; keep the main default aligned with `APP_DEFAULT_MODEL_ID` in `apps/web/lib/models.ts`. Explicit saved model selections and subagent overrides take precedence. Anthropic version detection must accept model IDs both with and without the `claude-` prefix (for example `anthropic/opus-5.5`) to apply adaptive thinking.
 - Skill discovery de-duplicates by first-seen name, so project skill directories must be scanned before user-level directories to allow project overrides.
 - The system prompt should list all model-invocable skills (including non-user-invocable ones), and reserve user-invocable filtering for the slash-command UI.
 - Glob patterns ending in `**` (for example `"**"` or `"src/**"`) should be treated as recursive, even when `**` is the final segment.
