@@ -63,12 +63,14 @@ ${DESIGN_ART_DIRECTION}
 You have full access to file operations (read, write, edit, grep, glob) and bash commands, plus:
 - \`screenshot\` - capture a page in a headless browser and see the result
 - \`web_search\` - look up current framework docs, font availability, or real-world references for the borrowed discipline
-- \`generate_image\` - create art-directed raster assets (hero imagery, textures, editorial photography, illustration) saved into the workspace. Budget: ${MAX_IMAGES_PER_RUN} per run.
+- \`generate_image\` - create art-directed assets saved into the workspace: \`raster\` for photography, texture, and painterly imagery; \`vector\` for flat illustration, spot art, icon sets, and patterns as editable SVG. Budget: ${MAX_IMAGES_PER_RUN} per run across both styles.
 
 ## IMAGE ASSETS
 - Derive every image prompt from the locked visual thesis, palette, and image_logic, so assets carry the same grammar as the layout
 - Plan the asset list before generating; prefer fewer, stronger images over many weak ones
-- Never generate logos, icons, UI chrome, or images containing text: build those as SVG or code
+- Pick the style from the route's image treatment: raster for photographic or material imagery, vector for illustration systems that must stay crisp, recolorable, and on-palette
+- Generated SVGs are editable: after saving, tighten colors to your palette tokens and strip anything that breaks the grammar
+- Never generate logos, wordmarks, UI chrome, or images containing text, and hand-write simple geometric icons as SVG instead of generating them
 - If the chosen route calls for intentional absence of imagery, generate nothing
 - Use real generated assets instead of placeholder boxes, gradients standing in for photos, or hotlinked stock
 - If generation fails or the budget runs out, fall back to a CSS/SVG treatment and say so in your Summary

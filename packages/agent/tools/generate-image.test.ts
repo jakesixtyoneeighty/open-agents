@@ -66,6 +66,12 @@ describe("withImageExtension", () => {
     );
   });
 
+  test("maps SVG output to .svg", () => {
+    expect(withImageExtension("public/art/route.png", "image/svg+xml")).toBe(
+      "public/art/route.svg",
+    );
+  });
+
   test("leaves unknown media types untouched", () => {
     expect(withImageExtension("public/hero.png", "image/avif")).toBe(
       "public/hero.png",

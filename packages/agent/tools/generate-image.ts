@@ -1,11 +1,29 @@
-import { generateImage, tool, type ModelMessage } from "ai";
+import {
+  generateImage,
+  tool,
+  type ModelMessage,
+  type ProviderMetadata,
+} from "ai";
 import * as path from "path";
 import { z } from "zod";
 import { gatewayImageModel } from "../models";
 import { resolveSandboxRealPath, resolveWorkspacePath } from "./path-security";
 import { getSandbox, shellEscape, toDisplayPath } from "./utils";
 
-export const IMAGE_GENERATION_MODEL = "openai/gpt-image-2.5-sunburst";
+/** Model per asset style: photographic/painterly raster vs. SVG vector art. */
+export const IMAGE_GENERATION_MODELS = {
+  raster: "openai/gpt-image-2.5-sunburst",
+  vector: "recraft/recraft-v4.1",
+} as const;
+
+type ImageStyle = keyof typeof IMAGE_GENERATION_MODELS;
+
+const PROVIDER_OPTIONS: Record<ImageStyle, ProviderMetadata | undefined> = {
+  raster: undefined,
+  vector: { recraft: { style: "vector_illustration" } },
+};
+
+const SVG_MEDIA_TYPE = "image/svg+xml";
 
 /** Image generation is billed per image, so each subagent run gets a budget. */
 export const MAX_IMAGES_PER_RUN = 8;
@@ -24,6 +42,7 @@ const EXTENSIONS_BY_MEDIA_TYPE: Record<string, string> = {
   "image/png": ".png",
   "image/jpeg": ".jpg",
   "image/webp": ".webp",
+  [SVG_MEDIA_TYPE]: ".svg",
 };
 
 const generateImageInputSchema = z.object({
@@ -37,6 +56,12 @@ const generateImageInputSchema = z.object({
     .string()
     .describe(
       "Workspace-relative path to save the image (e.g. public/images/hero.png). The extension is corrected to match the returned format.",
+    ),
+  style: z
+    .enum(["raster", "vector"])
+    .optional()
+    .describe(
+      "raster: photography, painterly or textured imagery (PNG). vector: flat illustrations, spot art, icon sets, patterns (SVG). Default: raster",
     ),
   aspect: z
     .enum(["square", "landscape", "portrait"])
@@ -84,14 +109,19 @@ export function withImageExtension(filePath: string, mediaType: string) {
 
 export const generateImageTool = tool({
   needsApproval: false,
-  description: `Generate a raster image asset (${IMAGE_GENERATION_MODEL}) and save it into the workspace.
+  description: `Generate an image asset and save it into the workspace.
+
+STYLES:
+- raster (${IMAGE_GENERATION_MODELS.raster}): hero imagery, editorial photography, textures, painterly backgrounds
+- vector (${IMAGE_GENERATION_MODELS.vector}): flat illustrations, spot art, icon sets, decorative patterns, saved as editable SVG
 
 WHEN TO USE:
-- Hero imagery, editorial photography, textures, backgrounds, and illustrations the chosen direction calls for
+- Imagery and illustration the chosen direction calls for
 - Replacing placeholder or stock imagery with art-directed assets
 
 WHEN NOT TO USE:
-- Logos, icons, UI chrome, or anything with legible text: build those as SVG or code
+- Logos, wordmarks, UI chrome, or anything with legible text: build those as SVG or code
+- Simple geometric icons a few SVG paths can express
 - When the chosen direction calls for intentional absence of imagery
 - Decorative filler that does not serve the visual thesis
 
@@ -103,10 +133,11 @@ USAGE:
 - On failure, fall back to CSS/SVG treatment and note it in your summary
 
 EXAMPLES:
-- prompt: "Overhead photograph of linen specimen trays under cool museum light, muted gray-green palette, shallow depth of field", outputPath: "public/images/hero.png", aspect: "landscape"`,
+- prompt: "Overhead photograph of linen specimen trays under cool museum light, muted gray-green palette, shallow depth of field", outputPath: "public/images/hero.png", aspect: "landscape"
+- prompt: "Flat two-color line illustration of a transit route map fragment, ink black on bone white, no text", outputPath: "public/illustrations/route.svg", style: "vector", aspect: "square"`,
   inputSchema: generateImageInputSchema,
   execute: async (
-    { prompt, outputPath, aspect = "landscape" },
+    { prompt, outputPath, aspect = "landscape", style = "raster" },
     { experimental_context, abortSignal, messages },
   ) => {
     const priorCalls = countPriorImageCalls(messages);
@@ -122,9 +153,10 @@ EXAMPLES:
 
     try {
       const { image } = await generateImage({
-        model: gatewayImageModel(IMAGE_GENERATION_MODEL),
+        model: gatewayImageModel(IMAGE_GENERATION_MODELS[style]),
         prompt,
         size: SIZES[aspect],
+        providerOptions: PROVIDER_OPTIONS[style],
         abortSignal: abortSignal
           ? AbortSignal.any([
               abortSignal,
@@ -132,6 +164,13 @@ EXAMPLES:
             ])
           : AbortSignal.timeout(GENERATION_TIMEOUT_MS),
       });
+
+      if (style === "vector" && image.mediaType !== SVG_MEDIA_TYPE) {
+        return {
+          success: false,
+          error: `Vector generation returned ${image.mediaType} instead of SVG. Build this asset as hand-written SVG instead.`,
+        };
+      }
 
       const absolutePath = resolveWorkspacePath(
         withImageExtension(outputPath, image.mediaType),
@@ -178,6 +217,8 @@ EXAMPLES:
       return {
         success: true,
         path: toDisplayPath(absolutePath, workingDirectory),
+        style,
+        model: IMAGE_GENERATION_MODELS[style],
         mediaType: image.mediaType,
         size: SIZES[aspect],
         bytesWritten: stats.size,
