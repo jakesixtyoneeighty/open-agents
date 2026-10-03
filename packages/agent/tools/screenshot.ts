@@ -162,6 +162,7 @@ const screenshotOutputSchema = z.union([
     consoleErrors: z.array(z.string()),
     imagePath: z.string(),
     imageId: z.string().optional(),
+    capturedAt: z.number().optional(),
     storageError: z.string().optional(),
     image: z.string(),
     mediaType: z.literal("image/jpeg"),
@@ -297,6 +298,7 @@ EXAMPLES:
 
       return {
         success: true,
+        capturedAt: Date.now(),
         url,
         viewport,
         width,

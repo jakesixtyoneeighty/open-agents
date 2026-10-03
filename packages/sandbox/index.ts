@@ -1,5 +1,12 @@
 // interface
 export type {
+  WorkspaceEditOperation,
+  WorkspaceEditRequest,
+  WorkspaceEditResult,
+  WorkspaceFileChange,
+  PatchHunk,
+} from "./workspace-edit/types";
+export type {
   ExecResult,
   Sandbox,
   SandboxHook,

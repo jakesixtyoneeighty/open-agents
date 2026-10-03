@@ -1,3 +1,5 @@
+import { createLocalWorkspaceEditor } from "../../sandbox/workspace-edit/test-harness";
+import { createHash } from "node:crypto";
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -81,6 +83,9 @@ const { skillTool } = await import("./skill");
 const { taskTool } = await import("./task");
 const { todoWriteTool } = await import("./todo");
 const { editFileTool, writeFileTool } = await import("./write");
+const { multiEditTool, applyPatchTool, undoEditTool } =
+  await import("./workspace-edit");
+const { workspaceEditOutputSchema } = await import("./workspace-edit-schema");
 const { buildSystemPrompt } = await import("../system-prompt");
 
 function createContext(sandbox: Record<string, unknown>) {
@@ -126,6 +131,7 @@ async function createFsSandbox() {
 
   const sandbox = {
     workingDirectory,
+    applyWorkspaceEdit: createLocalWorkspaceEditor(workingDirectory),
     stat: (filePath: string) => stat(filePath),
     readFile: (filePath: string, encoding: BufferEncoding) =>
       readFile(filePath, { encoding }),
@@ -139,6 +145,89 @@ async function createFsSandbox() {
 }
 
 describe("tools execute behavior", () => {
+  test("coordinated tools integrate revisions, compact results, patching and approved undo", async () => {
+    const { sandbox, workingDirectory } = await createFsSandbox();
+    await writeFile(path.join(workingDirectory, "a.ts"), "const old = 1;\n");
+    const context = createContext(sandbox);
+    const revision = createHash("sha256")
+      .update("const old = 1;\n")
+      .digest("hex");
+    const input = {
+      files: [
+        {
+          filePath: "a.ts",
+          expectedRevision: revision,
+          edits: [{ oldString: "old", newString: "value" }],
+        },
+      ],
+    };
+    const edited = workspaceEditOutputSchema.parse(
+      await multiEditTool.execute?.(input, executionOptions(context)),
+    );
+    if (!edited.success) throw new Error(edited.error);
+    expect(edited.changes[0]?.after).toBe("const value = 1;\n");
+    expect(
+      await multiEditTool.toModelOutput?.({
+        toolCallId: "tool-call-1",
+        input,
+        output: edited,
+      }),
+    ).toEqual({
+      type: "json",
+      value: {
+        ...edited,
+        changes: [
+          {
+            path: "a.ts",
+            beforeRevision: revision,
+            afterRevision: edited.changes[0]?.afterRevision,
+          },
+        ],
+      },
+    });
+    const patched = workspaceEditOutputSchema.parse(
+      await applyPatchTool.execute?.(
+        {
+          patch:
+            "*** Begin Patch\n*** Update File: a.ts\n@@\n-const value = 1;\n+const value = 2;\n*** Add File: b.ts\n+export {};\n*** End Patch",
+          expectedRevisions: { "a.ts": edited.changes[0]?.afterRevision ?? "" },
+        },
+        { ...executionOptions(context), toolCallId: "patch" },
+      ),
+    );
+    if (!patched.success) throw new Error(patched.error);
+    expect(await readFile(path.join(workingDirectory, "a.ts"), "utf8")).toBe(
+      "const value = 2;\n",
+    );
+    expect(
+      await getNeedsApprovalResult(
+        undoEditTool.needsApproval,
+        { changeSetId: patched.changeSetId },
+        context,
+      ),
+    ).toBe(true);
+    expect(
+      await getNeedsApprovalResult(
+        undoEditTool.needsApproval,
+        { changeSetId: patched.changeSetId, dryRun: true },
+        context,
+      ),
+    ).toBe(false);
+    const undone = workspaceEditOutputSchema.parse(
+      await undoEditTool.execute?.(
+        { changeSetId: patched.changeSetId },
+        { ...executionOptions(context), toolCallId: "undo" },
+      ),
+    );
+    expect(undone.success).toBe(true);
+    expect(await readFile(path.join(workingDirectory, "a.ts"), "utf8")).toBe(
+      "const value = 1;\n",
+    );
+    expect(
+      await stat(path.join(workingDirectory, "b.ts")).catch(() => null),
+    ).toBeNull();
+  });
+
   test("readFileTool returns numbered lines for offset/limit", async () => {
     const { sandbox, workingDirectory } = await createFsSandbox();
     const filePath = path.join(workingDirectory, "notes.txt");
@@ -152,6 +241,9 @@ describe("tools execute behavior", () => {
     expect(result).toEqual({
       success: true,
       path: "notes.txt",
+      revision: createHash("sha256")
+        .update("line-1\nline-2\nline-3")
+        .digest("hex"),
       totalLines: 3,
       startLine: 2,
       endLine: 3,
@@ -220,6 +312,7 @@ describe("tools execute behavior", () => {
       success: true,
       path: relativePath,
       bytesWritten: 5,
+      changeSetId: expect.any(String),
     });
   });
 
@@ -256,6 +349,7 @@ describe("tools execute behavior", () => {
       success: true,
       path: "src.txt",
       replacements: 2,
+      changeSetId: expect.any(String),
       startLine: 1,
     });
   });

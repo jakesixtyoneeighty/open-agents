@@ -1,72 +1,9 @@
-# Tool Approval System
+# Tool permissions
 
-This document explains the current bash safety model used in `packages/agent`.
+Planning and quality-review modes use server-side tool allowlists. New mutation tools are excluded by default. Quality review additionally receives the registered screenshot tool; the explorer has no shell tool.
 
-## Overview
+The ordinary build agent uses the approval rules in `tools/bash.ts`: selected dangerous command patterns and sensitive paths require approval. This is a denylist, not a general read-only shell or a command sandbox. Do not describe unknown commands or out-of-workspace cwd values as automatically approval-gated.
 
-The agent no longer has multiple runtime modes or configurable approval policies. Instead, bash safety is enforced directly by the bash tool with a simple default rule:
+`read`, `write`, and `edit` request approval for dotenv paths. Coordinated file tools reject traversal, `.git`, symlinks, hard links, binary files and oversized operations at execution. `multi_edit` and `apply_patch` refuse dotenv files; use an approved single-file edit when needed. `undo_edit` requires approval and cannot restore sensitive files.
 
-- safe read-only commands can run without approval
-- dangerous or unknown commands require approval
-- commands that escape the sandbox working directory require approval
-
-This is the only behavior needed to prevent obviously dangerous operations such as `rm -rf`.
-
-## Bash Approval Flow
-
-```text
-Bash tool called
-    ↓
-Is cwd outside working directory? ── Yes ──→ Needs approval
-    ↓ No
-Does the command match a dangerous or unknown pattern? ── Yes ──→ Needs approval
-    ↓ No
-Auto-approve
-```
-
-## Safe Commands
-
-The bash tool auto-approves a small set of read-only command prefixes such as:
-
-- `ls`
-- `find`
-- `grep`
-- `rg`
-- `git status`
-- `git diff`
-- `git log`
-- `pwd`
-- `echo`
-
-See `packages/agent/tools/bash.ts` for the full list.
-
-## Dangerous Commands
-
-The bash tool requires approval for dangerous patterns including commands like:
-
-- `rm`
-- `mv`
-- `cp`
-- `mkdir`
-- `touch`
-- `chmod`
-- `chown`
-- `sudo`
-- destructive git commands
-- package installation commands
-- shell redirects, pipes, and command chaining
-
-Unknown commands also require approval by default.
-
-## Subagents
-
-Subagents follow the exact same bash safety policy as the main agent. They no longer bypass dangerous-command approval.
-
-## Key Files
-
-| File | Purpose |
-| --- | --- |
-| `packages/agent/tools/bash.ts` | Hardcoded bash safety policy |
-| `packages/agent/tools/utils.ts` | Sandbox context helpers |
-| `packages/agent/subagents/executor.ts` | Executor subagent context |
-| `packages/agent/subagents/explorer.ts` | Explorer subagent context |
+Build-capable agents share the sandbox editing engine and its process-wide filesystem lock. Arbitrary shell commands do not participate in that lock. Plan/review/explorer cannot access the editing tools. Skills do not grant additional tools or permissions.

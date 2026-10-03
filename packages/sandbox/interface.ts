@@ -1,4 +1,8 @@
 import type { Dirent } from "fs";
+import type {
+  WorkspaceEditRequest,
+  WorkspaceEditResult,
+} from "./workspace-edit/types";
 
 /**
  * The type of sandbox environment.
@@ -127,6 +131,9 @@ export interface Sandbox {
   readFile(path: string, encoding: "utf-8"): Promise<string>;
   readFileBuffer(path: string): Promise<Buffer>;
   writeFile(path: string, content: string, encoding: "utf-8"): Promise<void>;
+  applyWorkspaceEdit?(
+    request: WorkspaceEditRequest,
+  ): Promise<WorkspaceEditResult>;
   stat(path: string): Promise<SandboxStats>;
   access(path: string): Promise<void>;
   mkdir(path: string, options?: { recursive?: boolean }): Promise<void>;

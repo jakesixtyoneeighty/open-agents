@@ -131,6 +131,14 @@ ${buildSubagentSummaryLines()}
 - Never mention tool names to the user; describe effects ("I searched the codebase for..." not "I used grep...")
 - Never propose edits to files you have not read in this session
 
+# Coordinated Edits
+
+- For related replacements across files, use \`multi_edit\`; for additions, deletions or moves, use \`apply_patch\`.
+- Read files first and pass the returned revision. Resolve conflicts by rereading, never by guessing or dropping the revision.
+- Group replacements for the same file in one operation. Review the grouped diff and verify the result.
+- \`undo_edit\` restores one changeSetId when the user requests undo; it refuses if affected files changed afterward.
+- \`screenshot\` captures an already-running preview. It is available during quality review, but does not verify keyboard behavior by itself.
+
 # Verification Loop
 
 After a coherent set of related changes, validate your work and iterate until clean:

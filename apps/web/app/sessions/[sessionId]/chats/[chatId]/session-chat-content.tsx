@@ -2508,7 +2508,13 @@ export function SessionChatContent({
     }
 
     let hasFileChange = false;
-    const fileModifyingTools = ["tool-write", "tool-edit"];
+    const fileModifyingTools = [
+      "tool-write",
+      "tool-edit",
+      "tool-multi_edit",
+      "tool-apply_patch",
+      "tool-undo_edit",
+    ];
 
     for (const message of messages) {
       if (message.role !== "assistant") continue;

@@ -6,7 +6,13 @@ const REDACTED_WRITE_LINE = "[content redacted from shared page]";
 const REDACTED_EDIT_OLD_LINE = "[previous content redacted from shared page]";
 const REDACTED_EDIT_NEW_LINE = "[updated content redacted from shared page]";
 
-type SensitiveToolName = "read" | "write" | "edit";
+type SensitiveToolName =
+  | "read"
+  | "write"
+  | "edit"
+  | "multi_edit"
+  | "apply_patch"
+  | "undo_edit";
 type NestedSensitiveToolName = SensitiveToolName | "task";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -108,6 +114,12 @@ function getSensitiveToolName(
   input: unknown,
 ): SensitiveToolName | null {
   if (
+    toolName === "multi_edit" ||
+    toolName === "apply_patch" ||
+    toolName === "undo_edit"
+  )
+    return toolName;
+  if (
     (toolName === "read" || toolName === "write" || toolName === "edit") &&
     isRecord(input) &&
     isEnvFilePath(input.filePath)
@@ -127,6 +139,37 @@ function sanitizeToolCallInput(
   }
 
   switch (toolName) {
+    case "apply_patch":
+      return {
+        ...input,
+        patch: "[patch input redacted from shared page; see resulting diffs]",
+      };
+    case "multi_edit":
+      return {
+        ...input,
+        files: Array.isArray(input.files)
+          ? input.files.map((file) =>
+              isRecord(file)
+                ? {
+                    ...file,
+                    edits: Array.isArray(file.edits)
+                      ? file.edits.map((edit) =>
+                          isRecord(edit)
+                            ? {
+                                ...edit,
+                                oldString: REDACTED_EDIT_OLD_LINE,
+                                newString: REDACTED_EDIT_NEW_LINE,
+                              }
+                            : edit,
+                        )
+                      : file.edits,
+                  }
+                : file,
+            )
+          : input.files,
+      };
+    case "undo_edit":
+      return input;
     case "read":
       return input;
     case "write":
@@ -241,6 +284,16 @@ function sanitizeMessagePart(
   part: WebAgentUIMessagePart,
 ): WebAgentUIMessagePart {
   switch (part.type) {
+    case "tool-multi_edit":
+    case "tool-apply_patch":
+    case "tool-undo_edit":
+      return {
+        ...part,
+        input: sanitizeToolCallInput(
+          part.type.slice(5) as SensitiveToolName,
+          part.input,
+        ) as typeof part.input,
+      } as WebAgentUIMessagePart;
     case "tool-read":
       if (
         !isEnvFilePath(part.input?.filePath) ||

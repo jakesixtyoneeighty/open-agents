@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import type { WebAgentUIMessage } from "@/app/types";
+import { DiffsProvider } from "@/components/diffs-provider";
 import { db } from "@/lib/db/client";
 import { users } from "@/lib/db/schema";
 import { getChatById, getChatMessages } from "@/lib/db/sessions";
@@ -128,32 +129,34 @@ export default async function SharedPage({ params }: SharedPageProps) {
       : null;
 
   return (
-    <SharedChatContent
-      session={{
-        title,
-        repoOwner,
-        repoName,
-        branch,
-        cloneUrl,
-        prNumber,
-        prStatus,
-      }}
-      chats={[{ chat: sharedChat, messagesWithTiming }]}
-      modelId={sharedChat.modelId}
-      modelName={modelName}
-      sharedBy={
-        sessionUser
-          ? {
-              username: sessionUser.username,
-              name: sessionUser.name,
-              avatarUrl: sessionUser.avatarUrl,
-            }
-          : null
-      }
-      ownerSessionHref={ownerSessionHref}
-      isStreaming={isStreaming}
-      lastUserMessageSentAt={lastUserMessageSentAt}
-      shareId={shareId}
-    />
+    <DiffsProvider>
+      <SharedChatContent
+        session={{
+          title,
+          repoOwner,
+          repoName,
+          branch,
+          cloneUrl,
+          prNumber,
+          prStatus,
+        }}
+        chats={[{ chat: sharedChat, messagesWithTiming }]}
+        modelId={sharedChat.modelId}
+        modelName={modelName}
+        sharedBy={
+          sessionUser
+            ? {
+                username: sessionUser.username,
+                name: sessionUser.name,
+                avatarUrl: sessionUser.avatarUrl,
+              }
+            : null
+        }
+        ownerSessionHref={ownerSessionHref}
+        isStreaming={isStreaming}
+        lastUserMessageSentAt={lastUserMessageSentAt}
+        shareId={shareId}
+      />
+    </DiffsProvider>
   );
 }

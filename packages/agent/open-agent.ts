@@ -1,3 +1,8 @@
+import {
+  multiEditTool,
+  applyPatchTool,
+  undoEditTool,
+} from "./tools/workspace-edit";
 import type { SandboxState } from "@open-agents/sandbox";
 import { stepCountIs, ToolLoopAgent, type ToolSet } from "ai";
 import { z } from "zod";
@@ -23,6 +28,7 @@ import {
   grepTool,
   readFileTool,
   skillTool,
+  screenshotTool,
   taskTool,
   todoWriteTool,
   webFetchTool,
@@ -92,6 +98,9 @@ const baseTools = {
   read: readFileTool(),
   write: writeFileTool(),
   edit: editFileTool(),
+  multi_edit: multiEditTool,
+  apply_patch: applyPatchTool,
+  undo_edit: undoEditTool,
   grep: grepTool(),
   glob: globTool(),
   bash: bashTool(),
@@ -99,6 +108,7 @@ const baseTools = {
   task: taskTool,
   ask_user_question: askUserQuestionTool,
   skill: skillTool,
+  screenshot: screenshotTool,
   web_fetch: webFetchTool,
   web_search: webSearchTool,
 } satisfies ToolSet;

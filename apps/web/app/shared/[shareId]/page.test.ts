@@ -151,9 +151,11 @@ describe("/shared/[shareId] page", () => {
   test("renders exactly one shared chat from share id mapping", async () => {
     const { default: SharedPage } = await pageModulePromise;
 
-    const element = (await SharedPage({
-      params: Promise.resolve({ shareId: "share-1" }),
-    })) as {
+    const element = (
+      await SharedPage({
+        params: Promise.resolve({ shareId: "share-1" }),
+      })
+    ).props.children as {
       props: {
         chats: Array<{ chat: { id: string }; messagesWithTiming: unknown[] }>;
       };
@@ -168,9 +170,11 @@ describe("/shared/[shareId] page", () => {
     viewerSession = { user: { id: "user-1" } };
     const { default: SharedPage } = await pageModulePromise;
 
-    const element = (await SharedPage({
-      params: Promise.resolve({ shareId: "share-1" }),
-    })) as {
+    const element = (
+      await SharedPage({
+        params: Promise.resolve({ shareId: "share-1" }),
+      })
+    ).props.children as {
       props: {
         ownerSessionHref: string | null;
       };
@@ -202,9 +206,11 @@ describe("/shared/[shareId] page", () => {
 
     const { default: SharedPage } = await pageModulePromise;
 
-    const element = (await SharedPage({
-      params: Promise.resolve({ shareId: "share-1" }),
-    })) as {
+    const element = (
+      await SharedPage({
+        params: Promise.resolve({ shareId: "share-1" }),
+      })
+    ).props.children as {
       props: {
         modelName: string | null;
       };
@@ -268,9 +274,11 @@ describe("/shared/[shareId] page", () => {
     ];
 
     const { default: SharedPage } = await pageModulePromise;
-    const element = (await SharedPage({
-      params: Promise.resolve({ shareId: "share-1" }),
-    })) as {
+    const element = (
+      await SharedPage({
+        params: Promise.resolve({ shareId: "share-1" }),
+      })
+    ).props.children as {
       props: {
         chats: Array<{
           messagesWithTiming: Array<{
@@ -373,9 +381,11 @@ describe("/shared/[shareId] page", () => {
     ];
 
     const { default: SharedPage } = await pageModulePromise;
-    const element = (await SharedPage({
-      params: Promise.resolve({ shareId: "share-1" }),
-    })) as {
+    const element = (
+      await SharedPage({
+        params: Promise.resolve({ shareId: "share-1" }),
+      })
+    ).props.children as {
       props: {
         chats: Array<{
           messagesWithTiming: Array<{
@@ -426,9 +436,11 @@ describe("/shared/[shareId] page", () => {
   test("passes isStreaming=false and lastUserMessageSentAt when chat is idle", async () => {
     const { default: SharedPage } = await pageModulePromise;
 
-    const element = (await SharedPage({
-      params: Promise.resolve({ shareId: "share-1" }),
-    })) as {
+    const element = (
+      await SharedPage({
+        params: Promise.resolve({ shareId: "share-1" }),
+      })
+    ).props.children as {
       props: {
         isStreaming: boolean;
         lastUserMessageSentAt: string | null;
@@ -453,9 +465,11 @@ describe("/shared/[shareId] page", () => {
     };
     const { default: SharedPage } = await pageModulePromise;
 
-    const element = (await SharedPage({
-      params: Promise.resolve({ shareId: "share-1" }),
-    })) as {
+    const element = (
+      await SharedPage({
+        params: Promise.resolve({ shareId: "share-1" }),
+      })
+    ).props.children as {
       props: { isStreaming: boolean; lastUserMessageSentAt: string | null };
     };
 
@@ -475,9 +489,11 @@ describe("/shared/[shareId] page", () => {
     ];
     const { default: SharedPage } = await pageModulePromise;
 
-    const element = (await SharedPage({
-      params: Promise.resolve({ shareId: "share-1" }),
-    })) as {
+    const element = (
+      await SharedPage({
+        params: Promise.resolve({ shareId: "share-1" }),
+      })
+    ).props.children as {
       props: { lastUserMessageSentAt: string | null };
     };
 

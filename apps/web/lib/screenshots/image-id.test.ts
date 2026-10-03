@@ -28,6 +28,26 @@ describe("isScreenshotImageId", () => {
 });
 
 describe("collectScreenshotImageIds", () => {
+  test("finds main-agent screenshots for owner/share access and deletion", () => {
+    expect([
+      ...collectScreenshotImageIds({
+        parts: [
+          {
+            type: "tool-screenshot",
+            output: { success: true, imageId: "main-capture" },
+          },
+          {
+            type: "tool-screenshot",
+            output: { success: false, imageId: "failed" },
+          },
+          {
+            type: "tool-screenshot",
+            output: { success: true, imageId: "../invalid" },
+          },
+        ],
+      }),
+    ]).toEqual(["main-capture"]);
+  });
   test("finds image ids in nested task tool outputs", () => {
     const parts = [
       {

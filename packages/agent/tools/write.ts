@@ -1,7 +1,8 @@
 import { tool } from "ai";
 import { z } from "zod";
-import * as path from "path";
 import { getSandbox, toDisplayPath } from "./utils";
+import { executeWorkspaceEdit } from "./workspace-edit";
+import { fileRevisionSchema } from "./workspace-edit-schema";
 import {
   isDotEnvFilePath,
   isSensitiveDotEnvPath,
@@ -16,6 +17,9 @@ const writeInputSchema = z.object({
       "Workspace-relative path to the file to write (e.g., src/user.test.ts)",
     ),
   content: z.string().describe("Content to write to the file"),
+  expectedRevision: fileRevisionSchema
+    .optional()
+    .describe("Revision from read when replacing an existing file"),
 });
 
 const editInputSchema = z.object({
@@ -24,7 +28,10 @@ const editInputSchema = z.object({
     .describe(
       "Workspace-relative path to the file to edit (e.g., src/auth.ts)",
     ),
-  oldString: z.string().describe("The exact text to replace"),
+  oldString: z.string().min(1).describe("The exact text to replace"),
+  expectedRevision: fileRevisionSchema
+    .optional()
+    .describe("Revision returned by read"),
   newString: z
     .string()
     .describe("The text to replace it with (must differ from oldString)"),
@@ -96,49 +103,34 @@ EXAMPLES:
 - Create a new test file: filePath: "src/user.test.ts", content: "<full file contents>"
 - Replace a script after reading it: filePath: "scripts/build.sh", content: "<entire updated script>"`,
     inputSchema: writeInputSchema,
-    execute: async ({ filePath, content }, { experimental_context }) => {
+    execute: async (
+      { filePath, content, expectedRevision },
+      { experimental_context, toolCallId },
+    ) => {
       const sandbox = await getSandbox(experimental_context, "write");
-      const workingDirectory = sandbox.workingDirectory;
-
-      try {
-        const absolutePath = resolveWorkspacePath(filePath, workingDirectory);
-        if (!absolutePath) {
-          return {
-            success: false,
-            error: "Path must stay within the workspace.",
-          };
-        }
-
-        const realPath = await resolveSandboxRealPath({
-          sandbox,
-          absolutePath,
-          workingDirectory,
-        });
-        if (realPath && !resolveWorkspacePath(realPath, workingDirectory)) {
-          return {
-            success: false,
-            error: "Path resolves outside the workspace.",
-          };
-        }
-
-        const dir = path.dirname(absolutePath);
-        await sandbox.mkdir(dir, { recursive: true });
-        await sandbox.writeFile(absolutePath, content, "utf-8");
-
-        const stats = await sandbox.stat(absolutePath);
-
-        return {
-          success: true,
-          path: toDisplayPath(absolutePath, workingDirectory),
-          bytesWritten: stats.size,
-        };
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        return {
-          success: false,
-          error: `Failed to write file: ${message}`,
-        };
-      }
+      const result = await executeWorkspaceEdit(
+        {
+          allowSensitive: true,
+          operations: [
+            {
+              kind: "write",
+              path: toDisplayPath(filePath, sandbox.workingDirectory),
+              content,
+              expectedRevision,
+            },
+          ],
+        },
+        experimental_context,
+        toolCallId,
+        "write",
+      );
+      if (!result.success) return result;
+      return {
+        success: true as const,
+        path: toDisplayPath(filePath, sandbox.workingDirectory),
+        bytesWritten: Buffer.byteLength(content),
+        changeSetId: result.changeSetId,
+      };
     },
   });
 
@@ -183,7 +175,7 @@ WHEN TO USE:
 WHEN NOT TO USE:
 - Creating new files (use writeFileTool instead)
 - Large structural rewrites where it's simpler to rewrite the entire file (use writeFileTool)
-- Multi-file refactors (use grepTool + multiple edits, or taskTool for larger jobs)
+- Related changes across files (use multi_edit or apply_patch)
 
 USAGE:
 - Use workspace-relative file paths (e.g., "src/auth.ts")
@@ -203,80 +195,33 @@ EXAMPLES:
 - Rename a variable throughout a file: filePath: "src/api.ts", oldString: "oldApiClient", newString: "newApiClient", replaceAll: true, startLine: 15`,
     inputSchema: editInputSchema,
     execute: async (
-      { filePath, oldString, newString, replaceAll = false },
-      { experimental_context },
+      { filePath, oldString, newString, replaceAll = false, expectedRevision },
+      { experimental_context, toolCallId },
     ) => {
       const sandbox = await getSandbox(experimental_context, "edit");
-      const workingDirectory = sandbox.workingDirectory;
-
-      try {
-        if (oldString === newString) {
-          return {
-            success: false,
-            error: "oldString and newString must be different",
-          };
-        }
-
-        const absolutePath = resolveWorkspacePath(filePath, workingDirectory);
-        if (!absolutePath) {
-          return {
-            success: false,
-            error: "Path must stay within the workspace.",
-          };
-        }
-
-        const realPath = await resolveSandboxRealPath({
-          sandbox,
-          absolutePath,
-          workingDirectory,
-        });
-        if (realPath && !resolveWorkspacePath(realPath, workingDirectory)) {
-          return {
-            success: false,
-            error: "Path resolves outside the workspace.",
-          };
-        }
-
-        const content = await sandbox.readFile(absolutePath, "utf-8");
-
-        if (!content.includes(oldString)) {
-          return {
-            success: false,
-            error: "oldString not found in file",
-            hint: "Make sure to match exact whitespace and indentation",
-          };
-        }
-
-        const occurrences = content.split(oldString).length - 1;
-        if (occurrences > 1 && !replaceAll) {
-          return {
-            success: false,
-            error: `oldString found ${occurrences} times. Use replaceAll=true or provide more context to make it unique.`,
-          };
-        }
-
-        // Calculate starting line number for the edit
-        const matchIndex = content.indexOf(oldString);
-        const startLine = content.slice(0, matchIndex).split("\n").length;
-
-        const newContent = replaceAll
-          ? content.replaceAll(oldString, newString)
-          : content.replace(oldString, newString);
-
-        await sandbox.writeFile(absolutePath, newContent, "utf-8");
-
-        return {
-          success: true,
-          path: toDisplayPath(absolutePath, workingDirectory),
-          replacements: replaceAll ? occurrences : 1,
-          startLine,
-        };
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        return {
-          success: false,
-          error: `Failed to edit file: ${message}`,
-        };
-      }
+      const result = await executeWorkspaceEdit(
+        {
+          allowSensitive: true,
+          operations: [
+            {
+              kind: "update",
+              path: toDisplayPath(filePath, sandbox.workingDirectory),
+              expectedRevision,
+              edits: [{ oldString, newString, replaceAll }],
+            },
+          ],
+        },
+        experimental_context,
+        toolCallId,
+        "edit",
+      );
+      if (!result.success) return result;
+      return {
+        success: true as const,
+        path: toDisplayPath(filePath, sandbox.workingDirectory),
+        replacements: result.replacements,
+        startLine: result.startLine ?? 1,
+        changeSetId: result.changeSetId,
+      };
     },
   });

@@ -26,6 +26,7 @@ import {
   taskScreenshotSchema,
 } from "./screenshot-store";
 import { toTaskScreenshot } from "./task-screenshots";
+import { createWorkspaceEditHistory } from "./workspace-edit-history";
 import { getSandboxContext, getSubagentModel } from "./utils";
 
 const subagentTypeSchema = z.enum(SUBAGENT_TYPES);
@@ -166,6 +167,7 @@ IMPORTANT:
     let pending: TaskPendingToolCall | undefined;
     let usage: LanguageModelUsage | undefined;
     const screenshots: TaskScreenshot[] = [];
+    const editHistory = createWorkspaceEditHistory();
 
     // Emit an initial state so UIs can show elapsed time from a stable timestamp.
     yield { toolCallCount, startedAt, modelId: subagentModelId };
@@ -185,6 +187,7 @@ IMPORTANT:
       }
 
       if (part.type === "tool-result" || part.type === "tool-error") {
+        if (part.type === "tool-result") editHistory.capture(part);
         const screenshot = toTaskScreenshot(part, Date.now());
         if (screenshot) {
           screenshots.push(screenshot);
@@ -228,7 +231,7 @@ IMPORTANT:
     const response = await result.response;
     const finalUsage = usage ?? (await result.usage);
     yield {
-      final: stripToolResultImages(response.messages),
+      final: stripToolResultImages(editHistory.restore(response.messages)),
       toolCallCount,
       usage: finalUsage,
       startedAt,

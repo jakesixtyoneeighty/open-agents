@@ -1,4 +1,6 @@
 import { Sandbox as VercelSandboxSDK } from "@vercel/sandbox";
+import { runRemoteWorkspaceEdit } from "../workspace-edit/remote";
+import type { WorkspaceEditRequest } from "../workspace-edit/types";
 import type { Dirent } from "fs";
 import type {
   ExecResult,
@@ -771,6 +773,10 @@ ${hostLine}${portLines}${runtimeEnvLine}`;
     }
 
     return buffer.toString("utf-8");
+  }
+
+  applyWorkspaceEdit(request: WorkspaceEditRequest) {
+    return runRemoteWorkspaceEdit(this.session, this.workingDirectory, request);
   }
 
   async readFileBuffer(path: string): Promise<Buffer> {

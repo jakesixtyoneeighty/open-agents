@@ -15,6 +15,8 @@ import { BashRenderer } from "./renderers/bash-renderer";
 import { ReadRenderer } from "./renderers/read-renderer";
 import { WriteRenderer } from "./renderers/write-renderer";
 import { EditRenderer } from "./renderers/edit-renderer";
+import { WorkspaceEditRenderer } from "./renderers/workspace-edit-renderer";
+import { ScreenshotRenderer } from "./renderers/screenshot-renderer";
 import { GlobRenderer } from "./renderers/glob-renderer";
 import { GrepRenderer } from "./renderers/grep-renderer";
 import { TaskRenderer } from "./renderers/task-renderer";
@@ -53,6 +55,14 @@ export function ToolCall({
   const approvalProps = { onApprove, onDeny };
 
   switch (part.type) {
+    case "tool-multi_edit":
+    case "tool-apply_patch":
+    case "tool-undo_edit":
+      return (
+        <WorkspaceEditRenderer part={part} state={state} {...approvalProps} />
+      );
+    case "tool-screenshot":
+      return <ScreenshotRenderer part={part} state={state} />;
     case "tool-bash":
       return <BashRenderer part={part} state={state} {...approvalProps} />;
     case "tool-read":

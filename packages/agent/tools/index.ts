@@ -21,3 +21,5 @@ export { webFetchTool } from "./fetch";
 export { webSearchTool } from "./web-search";
 export { screenshotTool } from "./screenshot";
 export { generateImageTool } from "./generate-image";
+
+export { multiEditTool, applyPatchTool, undoEditTool } from "./workspace-edit";

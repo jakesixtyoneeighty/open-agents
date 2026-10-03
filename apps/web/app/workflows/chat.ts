@@ -94,6 +94,9 @@ const shouldPauseForToolInteraction = (parts: WebAgentUIMessage["parts"]) =>
 const DIFF_REFRESHING_TOOL_TYPES = new Set([
   "tool-write",
   "tool-edit",
+  "tool-multi_edit",
+  "tool-apply_patch",
+  "tool-undo_edit",
   "tool-bash",
 ]);
 

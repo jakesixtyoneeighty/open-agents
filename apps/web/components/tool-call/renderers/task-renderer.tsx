@@ -32,6 +32,7 @@ import { BashRenderer } from "./bash-renderer";
 import { ReadRenderer } from "./read-renderer";
 import { WriteRenderer } from "./write-renderer";
 import { EditRenderer } from "./edit-renderer";
+import { WorkspaceEditRenderer } from "./workspace-edit-renderer";
 import { GlobRenderer } from "./glob-renderer";
 import { GrepRenderer } from "./grep-renderer";
 import { TodoRenderer } from "./todo-renderer";
@@ -68,6 +69,18 @@ function getToolMeta(toolName: string): ToolMeta {
     case "edit":
       return {
         displayName: "Update",
+        icon: <Pencil className={TOOL_ICON_CLASS} />,
+      };
+    case "multi_edit":
+    case "apply_patch":
+    case "undo_edit":
+      return {
+        displayName:
+          toolName === "multi_edit"
+            ? "Edit files"
+            : toolName === "apply_patch"
+              ? "Apply patch"
+              : "Undo changes",
         icon: <Pencil className={TOOL_ICON_CLASS} />,
       };
     case "grep":
@@ -302,6 +315,10 @@ function SubagentToolCall({ part }: { part: WebAgentUIToolPart }) {
       return <WriteRenderer part={part} state={state} cwd={cwd} />;
     case "tool-edit":
       return <EditRenderer part={part} state={state} cwd={cwd} />;
+    case "tool-multi_edit":
+    case "tool-apply_patch":
+    case "tool-undo_edit":
+      return <WorkspaceEditRenderer part={part} state={state} />;
     case "tool-glob":
       return <GlobRenderer part={part} state={state} />;
     case "tool-grep":

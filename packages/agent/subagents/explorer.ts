@@ -6,7 +6,6 @@ import { withBundledSkills } from "../skills/bundled";
 import { buildSkillsPrompt } from "../skills/prompt";
 import type { SkillMetadata } from "../skills/types";
 import { skillTool } from "../tools/skill";
-import { bashTool } from "../tools/bash";
 import { commandOutputTool } from "../tools/command-output";
 import { projectReadMessages } from "../context-management/read-projection";
 import { globTool } from "../tools/glob";
@@ -53,7 +52,7 @@ Example final response:
 
 ## TOOLS & GUIDELINES
 
-You have access to: read, grep, glob, bash (read-only commands only), web_search (current docs, library versions, error messages)
+You have access to: read, grep, glob, web_search (current docs, library versions, error messages)
 
 **Strengths:**
 - Rapidly finding files using glob patterns
@@ -64,9 +63,7 @@ You have access to: read, grep, glob, bash (read-only commands only), web_search
 - Use glob for broad file pattern matching
 - Use grep for searching file contents with regex
 - Use read when you know the specific file path
-- Use bash ONLY for read-only operations (ls, git status, git log, git diff, find)
-- All bash commands automatically run in the working directory — NEVER prepend \`cd <working-directory> &&\` or similar to commands
-- NEVER use bash for: mkdir, touch, rm, cp, mv, git add, git commit, npm install, or any file creation/modification
+- Shell execution is unavailable. Use the provided read, grep, and glob tools.
 - Return workspace-relative file paths in your final response (e.g., "src/index.ts:42")`;
 
 const callOptionsSchema = z.object({
@@ -99,7 +96,6 @@ export const explorerSubagent = new ToolLoopAgent({
     read: readFileTool(),
     grep: grepTool(),
     glob: globTool(),
-    bash: bashTool(),
     command_output: commandOutputTool,
     web_search: webSearchTool,
   },

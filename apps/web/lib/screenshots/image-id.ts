@@ -34,6 +34,15 @@ export function collectScreenshotImageIds(
   }
 
   const screenshots = value.screenshots;
+  if (
+    value.type === "tool-screenshot" &&
+    isRecord(value.output) &&
+    value.output.success === true &&
+    typeof value.output.imageId === "string" &&
+    isScreenshotImageId(value.output.imageId)
+  ) {
+    ids.add(value.output.imageId);
+  }
   if (Array.isArray(screenshots)) {
     for (const screenshot of screenshots) {
       if (

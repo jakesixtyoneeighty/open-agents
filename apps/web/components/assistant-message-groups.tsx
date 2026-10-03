@@ -27,6 +27,17 @@ function getChangedFiles(message: WebAgentUIMessage): string[] {
   const files = new Set<string>();
   for (const part of message.parts) {
     if (
+      (part.type === "tool-multi_edit" ||
+        part.type === "tool-apply_patch" ||
+        part.type === "tool-undo_edit") &&
+      part.state === "output-available" &&
+      part.output.success &&
+      !part.output.dryRun
+    ) {
+      for (const change of part.output.changes) files.add(change.path);
+      continue;
+    }
+    if (
       isToolUIPart(part) &&
       FILE_MODIFYING_TOOLS.has(part.type) &&
       (part.input as { filePath?: string } | undefined)?.filePath

@@ -134,3 +134,12 @@ Hard-won knowledge from building this codebase. When you make a mistake or disco
 
 - Persist a chat outcome in the same compare-and-set update that clears its owning run. Stream disappearance, workflow transport completion, and provider length limits do not prove successful agent completion. Keep previous outcomes during a new run so polling can observe runs that finish between polls.
 - Review controls belong in a colocated component; preserve structured user mode snapshots through resend, model conversion, sharing, and export. Enforce the review tool allowlist and step cap server-side, and disable Git automation during review. File/page counts are prompt scope limits; the workflow step cap is enforced in code.
+
+## Coordinated editing and capability registration
+
+- Use replacement callbacks for literal edit content; JavaScript replacement strings interpret `$&`, `$$` and other dollar tokens. A reported successful edit can otherwise write different text than requested.
+- Editing locks belong in the sandbox, not a web-process map: separate chats, subagents and serverless steps can share one filesystem. The sandbox edit worker uses an OS lock, preflight checks, journals and conflict-aware rollback; shell commands do not participate.
+- Test the actual agent tool registries in addition to permission-filter stubs. An allowlist cannot enable a screenshot tool that was never registered; a prompt describing a read-only explorer cannot constrain an unrestricted bash tool.
+- For tests on macOS, canonicalize temporary paths before fault-injection comparisons: `/var/...` and `/private/var/...` can refer to the same file.
+- Every page rendering `MultiFileDiff` needs `DiffsProvider`, including shared chats and browser fixtures. Without it, the custom element can render an empty diff without a console error.
+- Subagent `response.messages` contains projected tool outputs. Capture full edit results from `fullStream` and restore them only for persisted task history, or compact model output will also erase transcript diffs.

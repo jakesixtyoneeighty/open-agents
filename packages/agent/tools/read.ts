@@ -81,6 +81,7 @@ USAGE:
 - Use offset and limit for long files (both are line-based, 1-indexed)
 - If nextRead is returned, pass its offset and columnOffset to continue without losing text
 - Results include line numbers starting at 1 in "N: content" format
+- Results include a whole-file revision; pass it to multi_edit/apply_patch or expectedRevision on edit/write
 
 IMPORTANT:
 - Always read a file at least once before editing it with the edit/write tools
@@ -131,6 +132,7 @@ EXAMPLES:
         return {
           success: true as const,
           path: toDisplayPath(absolutePath, workingDirectory),
+          revision: createHash("sha256").update(content).digest("hex"),
           ...readWindow(content, offset, limit, columnOffset),
           ...(realPath
             ? {

@@ -1,3 +1,8 @@
+import {
+  multiEditTool,
+  applyPatchTool,
+  undoEditTool,
+} from "../tools/workspace-edit";
 import type { LanguageModel } from "ai";
 import { stepCountIs, ToolLoopAgent } from "ai";
 import { gateway, type ModelConfig } from "../models";
@@ -83,6 +88,9 @@ export const executorSubagent = new ToolLoopAgent({
     read: readFileTool(),
     write: writeFileTool(),
     edit: editFileTool(),
+    multi_edit: multiEditTool,
+    apply_patch: applyPatchTool,
+    undo_edit: undoEditTool,
     grep: grepTool(),
     glob: globTool(),
     bash: bashTool(),
