@@ -21,6 +21,9 @@ mock.module("ai", () => {
 
   return {
     tool: <T extends Record<string, unknown>>(definition: T) => definition,
+    generateImage: async () => {
+      throw new Error("generateImage should not be called in this test");
+    },
     gateway,
     createGateway: () => gateway,
     defaultSettingsMiddleware: () => ({}),

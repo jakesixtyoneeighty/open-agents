@@ -4,6 +4,7 @@ import { gateway, type ModelConfig } from "../models";
 import { z } from "zod";
 import { bashTool } from "../tools/bash";
 import { commandOutputTool } from "../tools/command-output";
+import { generateImageTool, MAX_IMAGES_PER_RUN } from "../tools/generate-image";
 import { projectReadMessages } from "../context-management/read-projection";
 import { globTool } from "../tools/glob";
 import { grepTool } from "../tools/grep";
@@ -58,6 +59,15 @@ ${DESIGN_ART_DIRECTION}
 You have full access to file operations (read, write, edit, grep, glob) and bash commands, plus:
 - \`screenshot\` - capture a page in a headless browser and see the result
 - \`web_search\` - look up current framework docs, font availability, or real-world references for the borrowed discipline
+- \`generate_image\` - create art-directed raster assets (hero imagery, textures, editorial photography, illustration) saved into the workspace. Budget: ${MAX_IMAGES_PER_RUN} per run.
+
+## IMAGE ASSETS
+- Derive every image prompt from the locked visual thesis, palette, and image_logic, so assets carry the same grammar as the layout
+- Plan the asset list before generating; prefer fewer, stronger images over many weak ones
+- Never generate logos, icons, UI chrome, or images containing text: build those as SVG or code
+- If the chosen route calls for intentional absence of imagery, generate nothing
+- Use real generated assets instead of placeholder boxes, gradients standing in for photos, or hotlinked stock
+- If generation fails or the budget runs out, fall back to a CSS/SVG treatment and say so in your Summary
 
 ## VISUAL VERIFICATION (REQUIRED FOR UI WORK)
 You are not done until you have looked at what you built.
@@ -102,6 +112,7 @@ export const designSubagent = new ToolLoopAgent({
     command_output: commandOutputTool,
     screenshot: screenshotTool,
     web_search: webSearchTool,
+    generate_image: generateImageTool,
   },
   stopWhen: stepCountIs(SUBAGENT_STEP_LIMIT),
   callOptionsSchema,

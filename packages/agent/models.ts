@@ -3,6 +3,7 @@ import {
   defaultSettingsMiddleware,
   wrapLanguageModel,
   type GatewayModelId,
+  type ImageModel,
   type JSONValue,
   type LanguageModel,
 } from "ai";
@@ -224,6 +225,13 @@ export function getProviderOptionsForModel(
   return providerOptions;
 }
 
+function getAttributionHeaders(appName?: string, appUrl?: string) {
+  return {
+    "http-referer": appUrl ?? "https://open-agents.dev",
+    "x-title": appName ?? "Open Agents",
+  };
+}
+
 export function gateway(
   modelId: GatewayModelId,
   options: GatewayOptions = {},
@@ -231,10 +239,7 @@ export function gateway(
   const { config, providerOptionsOverrides, reasoningEffort, appName, appUrl } =
     options;
 
-  const attributionHeaders = {
-    "http-referer": appUrl ?? "https://open-agents.dev",
-    "x-title": appName ?? "Open Agents",
-  };
+  const attributionHeaders = getAttributionHeaders(appName, appUrl);
 
   const baseGateway = config
     ? createGateway({
@@ -262,4 +267,11 @@ export function gateway(
   }
 
   return model;
+}
+
+/** Image generation model routed through AI Gateway. */
+export function gatewayImageModel(modelId: string): ImageModel {
+  return createGateway({ headers: getAttributionHeaders() }).imageModel(
+    modelId,
+  );
 }
